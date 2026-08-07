@@ -1,0 +1,39 @@
+# Audits
+
+Point-in-time reviews of a whole surface: code, security, data coverage, docs.
+An audit is a snapshot plus a remediation punchlist. Reviewing a single diff or
+PR is `/code-review`, not an audit.
+
+## Conventions
+
+- One directory per audit: `<YYYY-MM-DD>-<slug>/`. Slug names the type and
+  sequence: `review-01`, `cyber-02`, `coverage-03`.
+- Files:
+  - `00-executive-summary.md` — verdict first: one-paragraph judgement, scope,
+    audited commit, date, method, findings count by severity, top risks.
+    Readable standalone by someone who opens nothing else.
+  - `NN-topic.md` — findings grouped by area, in reading order. Anchors
+    (`<a id="c-01"></a>`) for cross-references.
+  - `todo.md` — every finding as a checkbox with severity, priority, effort.
+    This is the implementation handle.
+- **Scope contract before digging**: paths in scope, paths explicitly out,
+  lens, `git rev-parse HEAD`, method.
+- Severity codes `<C|H|M|L>-NN`, unique within the audit. Critical means
+  exploitable, data-loss, or production down *now*. High means a user-visible
+  defect or a foot-gun. Don't inflate.
+- Priority tags: P0 ship-blocker, P1 before public release, P2 soon, P3 nice.
+- **Evidence or drop.** Every finding carries file:line, command output, or
+  reproduction steps. Re-check Criticals and Highs adversarially before
+  publishing.
+- Audits are immutable once published. Follow-up state lives in `todo.md` ticks
+  and in successor audits, never in silent edits.
+- No praise sections, no padding. Findings, evidence, punchlist.
+- Remediation PRs cite finding codes. Multi-phase remediation gets a plan; a
+  fork worth deciding gets an ADR.
+- Run it with the `/audit` skill.
+
+## Index
+
+| Audit | Lens | Commit | Findings |
+|-------|------|--------|----------|
+| — | none yet | — | — |
