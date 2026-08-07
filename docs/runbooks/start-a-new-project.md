@@ -71,20 +71,29 @@ pipeline, and the `make check` gate.
 7. Protect `main`. This is what makes "never push to main" real rather than
    an honour system:
 
+   The API wants real booleans and integers, so send JSON rather than `-f`
+   key/value pairs, which are always strings:
+
    ```bash
-   gh api -X PUT repos/rjdscott/<new-project>/branches/main/protection \
-     -H "Accept: application/vnd.github+json" \
-     -f 'required_status_checks[strict]=true' \
-     -f 'required_status_checks[contexts][]=check' \
-     -f 'enforce_admins=true' \
-     -f 'required_pull_request_reviews[required_approving_review_count]=0' \
-     -f 'restrictions=' \
-     -F 'allow_force_pushes=false' \
-     -F 'allow_deletions=false'
+   gh api -X PUT repos/rjdscott/<new-project>/branches/main/protection --input - <<'JSON'
+   {
+     "required_status_checks": { "strict": true, "contexts": ["check"] },
+     "enforce_admins": true,
+     "required_pull_request_reviews": { "required_approving_review_count": 0 },
+     "restrictions": null,
+     "allow_force_pushes": false,
+     "allow_deletions": false
+   }
+   JSON
 
    gh api -X PATCH repos/rjdscott/<new-project> \
      -F allow_merge_commit=false -F allow_rebase_merge=false -F allow_squash_merge=true
    ```
+
+   `required_approving_review_count: 0` still forces a pull request, it just
+   does not require someone else to approve it. That is the right setting for
+   a solo repo: the rule you want enforced is "not directly on `main`", not
+   "wait for a reviewer who does not exist".
 
    Verify:
 
@@ -109,9 +118,17 @@ pipeline, and the `make check` gate.
 - **`make check` fails with "dead link to docs/plans/".** Same cause, different
   surface: `CLAUDE.md` and `README.md` still point at a tier you removed. Edit
   the references.
-- **Branch protection call returns `422 Invalid request`.** Private repos on a
-  free plan cannot set branch protection. Either make the repo public, or
-  accept that the rule is honour-system only and say so in `CLAUDE.md`.
+- **Branch protection call returns `422 Invalid request`** with
+  `"true" is not a boolean`. The `-f` flag sends every value as a string and
+  this endpoint type-checks. Use `--input` with JSON, as above. Incident
+  2026-08-08: this runbook shipped with the `-f` form, the 422 was read as a
+  billing limit, and the repo went a day without protection on the strength of
+  a wrong error message.
+- **Branch protection genuinely unavailable.** Private repos on a free plan
+  cannot use it; public repos can, on any plan. Check with
+  `gh repo view --json visibility` before concluding you are blocked. If you
+  really are, say so in `CLAUDE.md` rather than leaving the rule looking
+  enforced.
 - **`required_status_checks[contexts][]=check` blocks every PR forever.** The
   context name must match the CI job name in `.github/workflows/ci.yml`
   (`check`). If you rename the job, update the protection rule in the same PR
@@ -121,5 +138,6 @@ pipeline, and the `make check` gate.
 
 - **Last verified:** 2026-08-07 against 6ced8b9. Steps 3 to 6 were executed
   end to end against a real clone stripped to tier 0, and both documented
-  failure modes reproduced. Steps 1, 2 and 7 are written from the GitHub API
-  docs and have not been run against a fresh repo yet.
+  failure modes reproduced. Step 7's payload was corrected on 2026-08-08 after
+  the shipped version returned 422; steps 1 and 2 are still written from the
+  GitHub API docs and have not been run against a fresh repo.

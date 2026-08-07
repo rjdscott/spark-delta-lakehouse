@@ -5,9 +5,9 @@ reused / P2 soon / P3 nice.
 
 - [x] **H-01** P0: ignore future dates when computing plan last-activity, so a
   target date cannot mask an abandoned plan. [`01-scaffold.md#h-01`](01-scaffold.md#h-01)
-- [ ] **H-02** P1: enable branch protection on `main`, or the claim in
-  `CLAUDE.md` stays reworded-down. Re-raised by review-02 as the one item
-  blocking template status. Needs the repo owner to run step 7 of
+- [x] **H-02** P1: resolved by decision, not by fix. `main` stays unprotected
+  deliberately; recorded in [ADR 0002](../../adr/0002-branch-rules-stay-honour-code.md)
+  and stated plainly in `CLAUDE.md`. Needs the repo owner to run step 7 of
   `docs/runbooks/start-a-new-project.md`. [`#h-02`](01-scaffold.md#h-02)
 - [ ] **M-03** P2: staleness rule for runbooks, 180 days against
   `Last verified`. [`#m-03`](01-scaffold.md#m-03)

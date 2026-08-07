@@ -40,4 +40,5 @@ line. Don't hand-edit.
 | # | Title | Status |
 |---|-------|--------|
 | [0001](0001-tiered-docs-scaffold-with-machine-enforcement.md) | Tiered docs scaffold with machine enforcement | Accepted |
+| [0002](0002-branch-rules-stay-honour-code.md) | Branch rules stay honour code | Accepted |
 <!-- index:end -->

@@ -15,10 +15,14 @@ generic and travels to every project unchanged.
   permanent history.
 - **Squash-merge only.** History stays linear.
 
-Branch protection *can* enforce the first and last of these, and
-`docs/runbooks/start-a-new-project.md` step 7 turns it on. Until that has been
-run against a given repo, all five are honour code. Check, don't assume:
-`gh api repos/<owner>/<repo>/branches/main/protection`.
+**None of these are enforced.** `main` is deliberately unprotected, by
+[ADR 0002](docs/adr/0002-branch-rules-stay-honour-code.md): the owner works
+alone and the gate would cost more than it catches. A push straight to `main`
+will succeed, so don't.
+
+Reversing that is one command, `docs/runbooks/start-a-new-project.md` step 7,
+and a repo with a second contributor should run it on day one. What *is*
+enforced is below.
 
 ## Tools
 

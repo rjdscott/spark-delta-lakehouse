@@ -10,9 +10,8 @@ reused / P2 soon / P3 nice.
 
 ## Carried from review-01
 
-- [ ] **H-02** P1: decide branch protection, then record the decision. Enable
-  it with step 7 of `docs/runbooks/start-a-new-project.md`, or state in
-  `CLAUDE.md` that the branch rules are deliberately honour code. Blocking for
-  template status, because every child inherits the answer.
+- [x] **H-02** P1: decided 2026-08-08. Branch rules stay honour code,
+  [ADR 0002](../../adr/0002-branch-rules-stay-honour-code.md). The blocking
+  condition was an examined answer, and there is one.
 - [ ] **M-03** P2: staleness rule for runbooks, 180 days against
   `Last verified`. Not blocking.
