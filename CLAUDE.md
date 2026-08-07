@@ -8,7 +8,7 @@ generic and travels to every project unchanged.
 - **Never push to `main`.** Always branch + PR + squash-merge.
 - **Branch naming:** `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`.
   Slug is short, hyphen-separated, lowercase.
-- **One PR per logical change.** Don't bundle unrelated fixes — they're hard to
+- **One PR per logical change.** Don't bundle unrelated fixes. They are hard to
   review and harder to revert.
 - **PR title:** `<type>(<scope>): <imperative summary>`, matching the branch
   type. With squash-merge the PR title becomes the commit message, so it is the
@@ -28,7 +28,7 @@ so the command survives a tooling change.
 
 | Target | Does |
 |--------|------|
-| `make setup` | `uv sync` — venv + dev tooling |
+| `make setup` | `uv sync`, for venv and dev tooling |
 | `make check` | **the gate.** `docs-check` + `lint` + `test`. Run before every handback |
 | `make docs` | regenerate the index tables after adding any doc |
 | `make docs-check` | index freshness, supersede links resolve, no silent plans |
@@ -64,13 +64,13 @@ Four doc surfaces, four skills, one flow:
 `docs/research/` (analysis) → `docs/adr/` (decisions) → `docs/plans/`
 (execution) → `docs/audits/` (verification). Dated-directory convention
 everywhere: `<YYYY-MM-DD>-<slug>/`. Alongside the flow: `docs/runbooks/`
-(operations) — ADRs record *why*, runbooks record *how*.
+(operations). ADRs record *why*, runbooks record *how*.
 
-**Docs update as-you-go, in the same PR as the change** — plan status +
+**Docs update as-you-go, in the same PR as the change**: plan status and
 progress logs, ADRs at forks, runbook bumps when steps change. Incidents and
 recoveries get written down, not buried.
 
-### Tiers — adopt what the project earns
+### Tiers: adopt what the project earns
 
 Not every repo needs all five surfaces. A scaffold applied where it isn't
 earned generates ceremony and then gets abandoned wholesale.
@@ -83,16 +83,16 @@ earned generates ceremony and then gets abandoned wholesale.
 
 Delete the directories you aren't at yet. Adding one back later costs nothing.
 
-### ADRs — `docs/adr/`, `/adr` skill
+### ADRs: `docs/adr/`, `/adr` skill
 
 - **Trigger: unwinding the decision would cost more than a day.** That is the
   test, not "significance". Cheap-to-reverse choices don't get an ADR, and a
   corpus padded with them is a corpus nobody reads.
 - Nygard format + options considered (`docs/adr/template.md`); conventions in
-  `docs/adr/README.md`. Accepted ADRs are immutable — supersede, never edit.
+  `docs/adr/README.md`. Accepted ADRs are immutable. Supersede, never edit.
 - ADRs land in the same PR as the work they govern.
 
-### Plans — `docs/plans/`, `/plan` skill
+### Plans: `docs/plans/`, `/plan` skill
 
 - Multi-phase work gets a plan: `docs/plans/<date>-<slug>/` with a status-table
   README + `phase-NN-slug.md` files. Conventions in `docs/plans/README.md`.
@@ -104,35 +104,35 @@ Delete the directories you aren't at yet. Adding one back later costs nothing.
   flagged by `make docs-check`. Mark it ⏸ Deferred or delete it. An abandoned
   plan that looks live is worse than no plan.
 
-### Audits — `docs/audits/`, `/audit` skill
+### Audits: `docs/audits/`, `/audit` skill
 
 - Point-in-time audits of a surface (code, security, UX, data):
   `docs/audits/<date>-<slug>/` with `00-executive-summary.md`, `NN-topic.md`
   findings, and a `todo.md` punchlist. Conventions in `docs/audits/README.md`.
 - Findings carry evidence or get dropped; severity codes `C/H/M/L-NN`; audits
-  are snapshots — never silently edited after publication.
+  are snapshots, never silently edited after publication.
 
-### Runbooks — `docs/runbooks/`, `/runbook` skill
+### Runbooks: `docs/runbooks/`, `/runbook` skill
 
 - Operational how-tos: one task per file, exact copy-pasteable commands,
   **Failure modes** fed by real incidents (dated), **Last verified** stamp.
 - Conventions + index in `docs/runbooks/README.md`. A PR that invalidates a
   runbook's steps updates it in the same PR.
 
-### Research — `docs/research/`
+### Research: `docs/research/`
 
 - Dated analysis workspaces. ADRs, plans, and audits cite research, never
   restate it. Conventions in `docs/research/README.md`.
 
 ## Linked docs
 
-- `docs/adr/README.md` — ADR conventions + index of recorded decisions.
-- `docs/plans/README.md` — plan conventions + index of phase plans (resumable).
-- `docs/audits/README.md` — audit conventions + index of completed audits.
-- `docs/runbooks/README.md` — runbook conventions + index of operational how-tos.
-- `docs/research/README.md` — research conventions + index of analysis workspaces.
-- `docs/runbooks/start-a-new-project.md` — how to cookie-cutter this template.
-- `docs/adr/0001-tiered-docs-scaffold-with-machine-enforcement.md` — why the
+- `docs/adr/README.md`: ADR conventions + index of recorded decisions.
+- `docs/plans/README.md`: plan conventions + index of phase plans (resumable).
+- `docs/audits/README.md`: audit conventions + index of completed audits.
+- `docs/runbooks/README.md`: runbook conventions + index of operational how-tos.
+- `docs/research/README.md`: research conventions + index of analysis workspaces.
+- `docs/runbooks/start-a-new-project.md`: how to cookie-cutter this template.
+- `docs/adr/0001-tiered-docs-scaffold-with-machine-enforcement.md`: why the
   scaffold is shaped this way, and what it costs.
 
 ---
@@ -142,7 +142,7 @@ Delete the directories you aren't at yet. Adding one back later costs nothing.
 Replace this section when you cookie-cutter the template. Everything above it
 stays.
 
-**spark-delta-lakehouse** — a reference implementation of dimensional modelling
+**spark-delta-lakehouse**: a reference implementation of dimensional modelling
 on Spark and Delta Lake, retail banking domain. Read
 `docs/initial-prompt.md` for the build brief: scope, phasing, acceptance
 criteria. Phase 1 is local filesystem, phase 2 adds MinIO, phase 3 is scoped

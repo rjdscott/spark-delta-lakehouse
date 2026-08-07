@@ -36,7 +36,7 @@ re-litigate them.
 
 | NN | Phase | Status | Last update |
 |----|-------|--------|-------------|
-| 01 | Slug  | 🔵 Not started | — |
+| 01 | Slug  | 🔵 Not started | none |
 
 ## Index
 

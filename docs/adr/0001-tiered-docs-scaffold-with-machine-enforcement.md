@@ -91,7 +91,7 @@ signal that the enforcement layer has outgrown a 200 line script.
 
 ## Related
 
-- `docs/runbooks/start-a-new-project.md` — the cookie-cutter procedure this
+- `docs/runbooks/start-a-new-project.md`: the cookie-cutter procedure this
   decision produces.
-- `docs/initial-prompt.md` — the build brief whose "docs that cannot drift from
+- `docs/initial-prompt.md`: the build brief whose "docs that cannot drift from
   code" argument is applied here to the docs pipeline itself.

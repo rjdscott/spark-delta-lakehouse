@@ -129,7 +129,7 @@ def plan_rows(surface: Path) -> tuple[list[str], list[str]]:
                 )
         rows.append(
             f"| [{directory.name}]({directory.name}/) | {title_of(readme)} "
-            f"| {status} | {touched or '—'} |"
+            f"| {status} | {touched or '-'} |"
         )
     return rows, problems
 

@@ -9,13 +9,13 @@ Runbooks record *how*; ADRs record *why* (`../adr/`); research records
 - One task per file: `<slug>.md`, imperative title. Updating an existing
   runbook beats creating a near-duplicate. Check the index first.
 - Four sections, in order:
-  - **When to use** — one or two lines.
-  - **Steps** — numbered, exact commands, copy-pasteable from a fresh clone.
+  - **When to use**: one or two lines.
+  - **Steps**: numbered, exact commands, copy-pasteable from a fresh clone.
     Show expected output wherever it isn't obvious.
-  - **Failure modes** — what actually goes wrong and how to recover. Real
+  - **Failure modes**: what actually goes wrong and how to recover. Real
     incidents, with their date, are the most instructive content here. Never
     omit one to look tidy.
-  - **Last verified** — written as `- **Last verified:** YYYY-MM-DD against
+  - **Last verified**: written as `- **Last verified:** YYYY-MM-DD against
     <commit or context>`. This line feeds the index.
 - Exact commands, never paraphrases: `uv run ruff check src tests`, not "run
   the linter".

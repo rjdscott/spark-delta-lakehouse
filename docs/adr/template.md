@@ -10,11 +10,11 @@ to feel the tension from this section alone.
 
 ## Options considered
 
-**A. <option>** — one line of what it is.
+**A. <option>**: one line of what it is.
 - Pros: ...
 - Cons: ...
 
-**B. <option>** — one line of what it is.
+**B. <option>**: one line of what it is.
 - Pros: ...
 - Cons: ...
 

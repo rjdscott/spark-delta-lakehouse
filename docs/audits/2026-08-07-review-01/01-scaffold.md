@@ -3,7 +3,7 @@
 Audited at `cc797ac`. Every finding below was reproduced, not inferred.
 
 <a id="h-01"></a>
-## H-01 — a future date in a plan permanently disables the staleness check
+## H-01: a future date in a plan permanently disables the staleness check
 
 `scripts/docs_index.py:65` took `max()` over every `YYYY-MM-DD` found anywhere
 under a plan directory and treated it as the last sign of life. Plans routinely
@@ -29,7 +29,7 @@ plan.
 a regression test (`test_target_date_in_the_future_is_not_activity`).
 
 <a id="h-02"></a>
-## H-02 — CLAUDE.md claims branch protection that is not enabled
+## H-02: CLAUDE.md claims branch protection that is not enabled
 
 `CLAUDE.md` states "Branch protection enforces the first and last of these",
 referring to never pushing to `main` and squash-merge only. It does not.
@@ -51,7 +51,7 @@ step 7) or reword the claim. Rewording applied; enabling is the user's call
 because it changes repo settings.
 
 <a id="m-03"></a>
-## M-03 — runbooks carry a `Last verified` stamp that nothing verifies
+## M-03: runbooks carry a `Last verified` stamp that nothing verifies
 
 Plans have a staleness rule. Runbooks, which carry `Last verified` and whose
 conventions say to bump it, have none. Runbook rot is the more dangerous of the
@@ -65,7 +65,7 @@ returns an empty problem list unconditionally (`scripts/docs_index.py:151`).
 (180 days). Not applied; see `todo.md`.
 
 <a id="m-04"></a>
-## M-04 — `main()` and `splice()` were untested, and were broken for any docs root outside the repo
+## M-04: `main()` and `splice()` were untested, and were broken for any docs root outside the repo
 
 The index generation had a test. The drift detection, which is the entire
 reason the script exists, did not.
@@ -84,7 +84,7 @@ green.
 clean. Both defects fixed. Applied.
 
 <a id="m-05"></a>
-## M-05 — audit conventions require a `- **Date:**` line that nothing consumes
+## M-05: audit conventions require a `- **Date:**` line that nothing consumes
 
 `docs/audits/README.md` asks for `Lens`, `Commit` and `Date` metadata lines.
 `audit_rows` reads only `Lens` and `Commit` (`scripts/docs_index.py:137`), and
@@ -96,7 +96,7 @@ wrong: nothing reads it, so nothing notices when it is stale or absent.
 **Fix.** Drop `Date` from the conventions. Applied.
 
 <a id="l-06"></a>
-## L-06 — the docs-in-the-same-PR rule remains honour code
+## L-06: the docs-in-the-same-PR rule remains honour code
 
 The PR template surfaces the rule as a checklist, which is a real improvement
 over nothing, but a checkbox is self-reported. ADR 0001 and the scaffold commit
@@ -108,7 +108,7 @@ and would train people to bypass it. Stating it honestly is the better trade.
 Applied as wording.
 
 <a id="l-07"></a>
-## L-07 — `meta()` scans the whole document, first match wins
+## L-07: `meta()` scans the whole document, first match wins
 
 `meta()` searches the entire file for `- **Key:** value`
 (`scripts/docs_index.py:58`). A future ADR that discusses the ADR format, and

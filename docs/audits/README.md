@@ -9,14 +9,14 @@ PR is `/code-review`, not an audit.
 - One directory per audit: `<YYYY-MM-DD>-<slug>/`. Slug names the type and
   sequence: `review-01`, `cyber-02`, `coverage-03`.
 - Files:
-  - `00-executive-summary.md` — verdict first: an H1 stating the verdict, then
+  - `00-executive-summary.md`: verdict first, an H1 stating the verdict, then
     `- **Lens:**` and `- **Commit:**` lines (these feed the index; the date
     is already in the directory name), then the one-paragraph judgement, scope,
     method, findings count by severity, top risks. Readable standalone by
     someone who opens nothing else.
-  - `NN-topic.md` — findings grouped by area, in reading order. Anchors
+  - `NN-topic.md`: findings grouped by area, in reading order. Anchors
     (`<a id="c-01"></a>`) for cross-references.
-  - `todo.md` — every finding as a checkbox with severity and priority. Two
+  - `todo.md`: every finding as a checkbox with severity and priority. Two
     axes, not three; a third gets filled in dishonestly. This is the
     implementation handle.
 - **Scope contract before digging**: paths in scope, paths explicitly out,

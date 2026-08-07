@@ -23,7 +23,7 @@ Why the repo is shaped the way it is. ADRs record *why*; runbooks record *how*
 ## When something deserves an ADR
 
 **The test is cost of reversal: would unwinding this decision six months from
-now cost more than a day?** If yes, write the ADR. If no, don't — a corpus
+now cost more than a day?** If yes, write the ADR. If no, don't. A corpus
 padded with cheap decisions is a corpus nobody reads, and "significance" is
 not a test anyone can fail.
 
