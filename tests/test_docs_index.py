@@ -88,3 +88,32 @@ def test_recently_touched_plan_is_not_flagged(tmp_path):
 
     assert problems == []
     assert fresh.isoformat() in block
+
+
+def test_target_date_in_the_future_is_not_activity(tmp_path):
+    """A plan naming a cutover date must not report it as a sign of life."""
+    old = dt.date.today() - dt.timedelta(days=docs_index.STALE_DAYS + 1)
+    write(
+        tmp_path / "plans" / "2020-01-01-migrate" / "README.md",
+        f"# Migrate\n\n- **Status:** 🟡 In progress\n\n{old.isoformat()} started. "
+        f"Target 2099-12-31.\n",
+    )
+    _, problems = docs_index.render("plans", tmp_path)
+
+    assert len(problems) == 1
+    assert f"silent since {old.isoformat()}" in problems[0]
+
+
+def test_check_mode_reports_a_stale_index(tmp_path, monkeypatch, capsys):
+    """The drift detection itself, end to end. This is the whole point of --check."""
+    readme = tmp_path / "runbooks" / "README.md"
+    write(readme, f"# Runbooks\n\n{docs_index.START}\n_None yet._\n{docs_index.END}\n")
+    write(tmp_path / "runbooks" / "thaw-the-cache.md", "# Thaw the cache\n")
+    monkeypatch.setattr(docs_index, "DOCS", tmp_path)
+
+    assert docs_index.main(["--check"]) == 1
+    assert "index out of date" in capsys.readouterr().err
+
+    assert docs_index.main([]) == 0
+    assert "thaw-the-cache" in readme.read_text()
+    assert docs_index.main(["--check"]) == 0

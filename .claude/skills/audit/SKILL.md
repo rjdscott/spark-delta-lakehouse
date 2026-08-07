@@ -33,7 +33,7 @@ Conventions live in `docs/audits/README.md` — read it first.
      Two axes, not three: an effort estimate gets filled in dishonestly.
      This is the implementation handle.
 5. **Regenerate the index**: `make docs`. The summary needs an H1 verdict plus
-   `- **Lens:**`, `- **Commit:**` and `- **Date:**` lines for the row to render.
+   `- **Lens:**` and `- **Commit:**` lines for the row to render.
 6. **Close the loop:**
    - A fork worth deciding (e.g. "replace X with Y?") → `/adr`, don't bury the
      decision in a finding.

@@ -68,9 +68,18 @@ def latest_date(directory: Path) -> str | None:
     Progress logs are dated appends, so the newest date in the tree is the
     last time anyone touched the work. Cheaper and more honest than mtime,
     which a checkout resets.
+
+    Future dates are ignored. Plans routinely name a target or cutover date,
+    and counting one as activity would let a plan abandoned years ago report
+    itself as fresh, which is precisely the case the staleness check exists
+    to catch.
     """
+    today = dt.date.today().isoformat()
     dates = [
-        d for f in sorted(directory.rglob("*.md")) for d in DATE_ANYWHERE.findall(f.read_text())
+        d
+        for f in sorted(directory.rglob("*.md"))
+        for d in DATE_ANYWHERE.findall(f.read_text())
+        if d <= today
     ]
     return max(dates) if dates else None
 
@@ -177,9 +186,10 @@ SURFACES = {
 }
 
 
-def render(name: str, docs: Path = DOCS) -> tuple[str, list[str]]:
+def render(name: str, docs: Path | None = None) -> tuple[str, list[str]]:
+    # Resolved at call time, not bound as a default, so DOCS stays overridable.
     header, collect = SURFACES[name]
-    rows, problems = collect(docs / name)
+    rows, problems = collect((docs or DOCS) / name)
     body = "\n".join(header + rows) if rows else EMPTY
     return f"{START}\n{body}\n{END}", problems
 
@@ -207,10 +217,10 @@ def main(argv: list[str] | None = None) -> int:
         if updated == readme.read_text():
             continue
         if args.check:
-            stale.append(str(readme.relative_to(ROOT)))
+            stale.append(rel(readme))
         else:
             readme.write_text(updated)
-            print(f"updated {readme.relative_to(ROOT)}")
+            print(f"updated docs/{rel(readme)}")
 
     for problem in problems:
         print(f"error: {problem}", file=sys.stderr)

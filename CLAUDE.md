@@ -15,8 +15,10 @@ generic and travels to every project unchanged.
   permanent history.
 - **Squash-merge only.** History stays linear.
 
-Branch protection enforces the first and last of these; see
-`docs/runbooks/start-a-new-project.md`. The rest are on you.
+Branch protection *can* enforce the first and last of these, and
+`docs/runbooks/start-a-new-project.md` step 7 turns it on. Until that has been
+run against a given repo, all five are honour code. Check, don't assume:
+`gh api repos/<owner>/<repo>/branches/main/protection`.
 
 ## Tools
 
