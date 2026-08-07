@@ -14,6 +14,7 @@ Rules checked:
   - every "Superseded by [NNNN]" points at an ADR that exists
   - no two ADRs share a number
   - no in-progress plan has been silent for more than STALE_DAYS
+  - no relative link points at a file that does not exist
 
 Metadata comes from lines the document templates already require, so no
 frontmatter ceremony: the first `# ` heading is the title, and
@@ -40,6 +41,8 @@ STALE_DAYS = 60
 DATED_DIR = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 DATE_ANYWHERE = re.compile(r"\d{4}-\d{2}-\d{2}")
 SUPERSEDED = re.compile(r"Superseded by \[(\d{4})\]")
+LINK = re.compile(r"\[[^\]]*\]\(([^)#]+)(?:#[^)]*)?\)")
+FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 
 
 def rel(path: Path) -> str:
@@ -194,6 +197,35 @@ def render(name: str, docs: Path | None = None) -> tuple[str, list[str]]:
     return f"{START}\n{body}\n{END}", problems
 
 
+def dead_links(root: Path | None = None) -> list[str]:
+    """Relative markdown links that point at nothing.
+
+    The reason this exists is tiering: deleting `docs/plans/` is a supported
+    move, and it silently orphans every reference to it. Without this check a
+    freshly cookie-cuttered repo passes `make check` while its README points
+    into space.
+
+    Placeholders in the templates (`NNNN-slug.md`, `<option>`) are skipped,
+    since they are meant to be filled in, not followed.
+    """
+    root = root or ROOT
+    problems = []
+    for path in sorted(root.rglob("*.md")):
+        if any(part in {".git", ".venv", "node_modules"} for part in path.parts):
+            continue
+        # Fenced blocks quote example output, which is not a link to follow.
+        body = FENCE.sub("", path.read_text())
+        for match in LINK.finditer(body):
+            target = match.group(1).strip()
+            if target.startswith(("http://", "https://", "mailto:")):
+                continue
+            if "NNNN" in target or "<" in target or target.startswith("..."):
+                continue
+            if not (path.parent / target).exists():
+                problems.append(f"{path.relative_to(root)}: dead link to {target}")
+    return problems
+
+
 def splice(readme: Path, block: str) -> str:
     text = readme.read_text()
     if START not in text or END not in text:
@@ -221,6 +253,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             readme.write_text(updated)
             print(f"updated docs/{rel(readme)}")
+
+    # After the write loop: a regenerated index must not be judged on the rows
+    # it no longer contains.
+    problems += dead_links()
 
     for problem in problems:
         print(f"error: {problem}", file=sys.stderr)

@@ -117,3 +117,16 @@ def test_check_mode_reports_a_stale_index(tmp_path, monkeypatch, capsys):
     assert docs_index.main([]) == 0
     assert "thaw-the-cache" in readme.read_text()
     assert docs_index.main(["--check"]) == 0
+
+
+def test_dead_links_are_caught_but_placeholders_are_not(tmp_path):
+    """Tier-stripping orphans references. Template placeholders are not links."""
+    write(tmp_path / "README.md", "See [gone](docs/gone.md) and [real](kept.md).\n")
+    write(tmp_path / "kept.md", "# Kept\n")
+    write(
+        tmp_path / "template.md",
+        "Supersede with [NNNN](NNNN-slug.md), see [opt](<option>).\n"
+        "```\n$ tool\n[out](2020-01-01-x/)\n```\n",
+    )
+
+    assert docs_index.dead_links(tmp_path) == ["README.md: dead link to docs/gone.md"]

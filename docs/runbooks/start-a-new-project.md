@@ -7,6 +7,14 @@ pipeline, and the `make check` gate.
 
 ## Steps
 
+0. Prerequisites: `git`, `gh` (authenticated), and `uv`. Without `uv`,
+   `make setup` fails with `make: uv: No such file or directory`:
+
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   gh auth status
+   ```
+
 1. Mark this repo as a GitHub template, once (skip if already done):
 
    ```bash
@@ -26,7 +34,8 @@ pipeline, and the `make check` gate.
 
    ```bash
    rm -f docs/initial-prompt.md
-   rm -rf docs/adr/0001-*.md          # the template's own ADR, not yours
+   rm -rf docs/adr/0001-*.md            # the template's own ADR, not yours
+   rm -rf docs/audits/*-review-0*       # audits OF the template, not of you
    ```
 
    Then edit `CLAUDE.md`: replace everything under `## This project`, and
@@ -44,8 +53,9 @@ pipeline, and the `make check` gate.
    else needs changing. Adding a surface back later is `git checkout` from
    the template.
 
-5. Rename the package in `pyproject.toml` (`[project] name`), and update
-   `README.md`.
+5. Rename the package in `pyproject.toml` (`[project] name` and
+   `description`), and rewrite `README.md`. Both still describe the template's
+   own project.
 
 6. Install tooling and confirm the gate is green from a cold clone:
 
@@ -54,7 +64,9 @@ pipeline, and the `make check` gate.
    make check
    ```
 
-   Expected: `docs-check` silent, ruff clean, pytest green.
+   Expected: `docs-check` silent, ruff clean, pytest green. If `docs-check`
+   reports dead links, they are references to the docs you deleted in steps 3
+   and 4. Fix the references; do not delete the check.
 
 7. Protect `main`. This is what makes "never push to main" real rather than
    an honour system:
@@ -92,6 +104,11 @@ pipeline, and the `make check` gate.
 - **`make check` fails on a fresh clone with "index out of date".** The
   template shipped index tables listing docs you deleted in step 3 or 4. Run
   `make docs` and commit the result. This is the generator working correctly.
+  Verified 2026-08-07 by cookie-cuttering to tier 0: the failure and the
+  recovery both behave as written.
+- **`make check` fails with "dead link to docs/plans/".** Same cause, different
+  surface: `CLAUDE.md` and `README.md` still point at a tier you removed. Edit
+  the references.
 - **Branch protection call returns `422 Invalid request`.** Private repos on a
   free plan cannot set branch protection. Either make the repo public, or
   accept that the rule is honour-system only and say so in `CLAUDE.md`.
@@ -102,6 +119,7 @@ pipeline, and the `make check` gate.
 
 ## Last verified
 
-- **Last verified:** 2026-08-07 against fd41c4a. Steps 1, 2 and 7 are written
-  from the GitHub API docs and have not been run against a fresh repo yet;
-  steps 3 to 6 were run in this repo.
+- **Last verified:** 2026-08-07 against 6ced8b9. Steps 3 to 6 were executed
+  end to end against a real clone stripped to tier 0, and both documented
+  failure modes reproduced. Steps 1, 2 and 7 are written from the GitHub API
+  docs and have not been run against a fresh repo yet.
