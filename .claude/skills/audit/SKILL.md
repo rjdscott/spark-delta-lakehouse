@@ -13,7 +13,7 @@ Conventions live in `docs/audits/README.md` — read it first.
    (paths), explicitly out of scope, lens (correctness / security / UX / data
    coverage / all), the commit being audited (`git rev-parse HEAD`), and method
    (inline vs. fan-out agents). Confirm scope with the user if it isn't already
-   pinned. Fan-out note: bulk agent sweeps run on Sonnet/Opus, not Fable.
+   pinned.
 2. **Create** `docs/audits/<today>-<slug>/`. Slug names the audit type and
    sequence, matching precedent: `cyber-02`, `review-02`, `coverage-03`, or a
    descriptive slug for one-offs.
@@ -29,9 +29,11 @@ Conventions live in `docs/audits/README.md` — read it first.
    - `NN-topic.md` — findings grouped by area, reading order. Cross-reference
      with HTML anchors (`<a id="c-01"></a>`) + relative links.
    - `todo.md` — every finding as a checkbox with severity + priority
-     (P0 ship-blocker / P1 before public beta / P2 before paid users /
-     P3 nice-to-have) + effort tag. This is the implementation handle.
-5. **Register it** in the `docs/audits/README.md` index table.
+     (P0 ship-blocker / P1 before public release / P2 soon / P3 nice-to-have).
+     Two axes, not three: an effort estimate gets filled in dishonestly.
+     This is the implementation handle.
+5. **Regenerate the index**: `make docs`. The summary needs an H1 verdict plus
+   `- **Lens:**`, `- **Commit:**` and `- **Date:**` lines for the row to render.
 6. **Close the loop:**
    - A fork worth deciding (e.g. "replace X with Y?") → `/adr`, don't bury the
      decision in a finding.

@@ -28,14 +28,14 @@ keyboard.
    - **Last verified** — date + the commit/context it was tested against.
 4. **Verify the commands** before writing them down, where feasible. A
    runbook nobody ran is fiction.
-5. **Register it** in the `docs/runbooks/README.md` index table.
+5. **Regenerate the index**: `make docs`. The row comes from the H1 and the
+   `- **Last verified:** YYYY-MM-DD against <commit>` line.
 6. **Maintenance rule**: any PR that invalidates a runbook's steps updates
    the runbook in the same PR and bumps Last verified.
 
 ## Hard rules
 
-- Exact commands, never paraphrases ("run the linter" ✗, `uv run ruff check
-  src tests` ✓).
+- Exact commands, never paraphrases ("run the checks" ✗, `make check` ✓).
 - Incidents are appended to Failure modes with their date — the runbook is
   the incident's permanent home; don't bury it in chat history.
 - No decision rationale in runbooks — link the ADR instead.

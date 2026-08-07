@@ -25,7 +25,8 @@ Conventions live in `docs/plans/README.md` — read it first. Two modes.
    (roughly ≤ a few days). Order by dependency, then risk — riskiest
    assumptions surface earliest. 3–8 phases typical; more means the plan is
    probably two plans.
-4. **Register it** in the `docs/plans/README.md` index table.
+4. **Regenerate the index**: `make docs`. The plan README needs an H1 goal and
+   a `- **Status:**` line for the row to render.
 5. Confirm the plan with the user before execution begins.
 
 ## Mode: execute (`/plan execute <dir>` or a resume request)
@@ -55,4 +56,7 @@ Conventions live in `docs/plans/README.md` — read it first. Two modes.
 - A stranger must be able to resume from the README alone — that property is
   the definition of done for every update you make to plan docs.
 - Status table, checkboxes, and progress logs update as-you-go, not at the end.
+- Progress-log entries are dated (`YYYY-MM-DD`). `make docs-check` fails a 🟡
+  plan with nothing newer than 60 days, so a stalled plan must be marked
+  ⏸ Deferred or deleted rather than left to look live.
 - Plans cite ADRs and research; they never restate or re-litigate them.

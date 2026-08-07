@@ -10,12 +10,12 @@ Create one ADR in `docs/adr/`, following `docs/adr/README.md` conventions and
 
 ## Workflow
 
-1. **Confirm it deserves an ADR.** Real alternatives existed and the choice has
-   lasting reach. If there was only one sane option or it's a reversible detail,
-   say so and stop — don't generate ceremony.
+1. **Confirm it deserves an ADR.** The test is cost of reversal: would
+   unwinding this six months from now cost more than a day? If no, say so and
+   stop — don't generate ceremony.
 2. **Determine the number.** `ls docs/adr/` → next 4-digit sequence (never reuse,
    never renumber). Slug: short, lowercase, hyphenated, states the decision
-   (`0003-neo4j-community-for-graph-store.md`, not `0003-database.md`).
+   (`0003-postgres-for-the-metadata-store.md`, not `0003-database.md`).
 3. **Draft from the template** (`docs/adr/template.md`). Rules:
    - **Context**: forces and constraints only, no solutions. A stranger to the
      repo must understand the tension.
@@ -34,7 +34,9 @@ Create one ADR in `docs/adr/`, following `docs/adr/README.md` conventions and
    - Superseding: new ADR references the old in **Related**; edit the old ADR's
      status line to `Superseded by [NNNN](NNNN-slug.md)` — that line is the only
      permitted edit to an accepted ADR.
-5. **Update the index** table in `docs/adr/README.md` (number, title, status).
+5. **Regenerate the index**: `make docs`. Never hand-edit the table between the
+   `<!-- index:start -->` markers; it is generated from each ADR's `# ` heading
+   and `- **Status:**` line. Run `make check` before handing back.
 6. **Report**: file path + one-line decision statement. If the ADR was created
    mid-task, continue the task; land the ADR in the same branch/PR as the work
    it governs.

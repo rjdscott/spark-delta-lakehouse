@@ -1,0 +1,19 @@
+[project]
+name = "spark-delta-lakehouse"
+version = "0.1.0"
+description = "Dimensional modelling on Spark and Delta Lake, retail banking domain"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["warehouse"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+pythonpath = ["scripts", "src"]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
