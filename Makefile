@@ -2,7 +2,9 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test
+.PHONY: help setup check docs docs-check lint test stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell
+
+COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
@@ -24,3 +26,26 @@ lint: ## Lint and format-check
 
 test: ## Run tests
 	$(UV) run pytest -q
+
+stack-up: ## Build and start the lakehouse stack
+	$(COMPOSE) up -d --build
+	@echo "MinIO console http://localhost:9001 | Spark master http://localhost:8090 | Unity Catalog http://localhost:8080"
+
+stack-down: ## Stop the stack, keep the data volumes
+	$(COMPOSE) down
+
+stack-destroy: ## Stop the stack and delete the data volumes
+	$(COMPOSE) down -v
+
+stack-ps: ## Show service status
+	$(COMPOSE) ps
+
+stack-logs: ## Tail logs for all services
+	$(COMPOSE) logs -f --tail=50
+
+stack-smoke: ## Prove cluster + catalog + MinIO + Delta end to end
+	$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
+		--master spark://spark-master:7077 scripts/smoke_stack.py
+
+stack-shell: ## Open a shell on the driver container
+	$(COMPOSE) exec app bash

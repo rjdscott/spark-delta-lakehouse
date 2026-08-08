@@ -219,3 +219,7 @@ __marimo__/
 
 # JetBrains IDE
 .idea/
+
+# Local lakehouse data
+warehouse*/
+data/raw/*.csv

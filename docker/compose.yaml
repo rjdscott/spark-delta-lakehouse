@@ -1,0 +1,156 @@
+# A local lakehouse shaped like a small bank's: object storage, a governed
+# catalog with a metadata database behind it, and a Spark cluster that jobs are
+# submitted to rather than run inside. Nothing here is a toy substitute for a
+# component that would exist in production; it is the same components, smaller.
+#
+# Bring it up with `make stack-up`. See docs/runbooks/run-the-lakehouse-stack.md.
+
+name: lakehouse
+
+services:
+
+  # --- Storage layer -------------------------------------------------------
+  minio:
+    image: ${MINIO_IMAGE}
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # console, the visual half of the demo
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      # Compose starts containers in order but does not wait for readiness
+      # unless asked. Without this the bucket init races the server.
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE}
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/${LAKEHOUSE_BUCKET} &&
+      mc ls local &&
+      echo 'bucket ready'
+      "
+    restart: "no"
+
+  # --- Catalog layer -------------------------------------------------------
+  catalog-db:
+    image: ${POSTGRES_IMAGE}
+    environment:
+      POSTGRES_USER: unitycatalog
+      POSTGRES_PASSWORD: unitycatalog
+      POSTGRES_DB: unitycatalog
+    volumes:
+      - catalog-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unitycatalog"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  unitycatalog:
+    image: ${UC_SERVER_IMAGE}
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uc/server.properties:/home/unitycatalog/etc/conf/server.properties:ro
+      - ./uc/hibernate.properties:/home/unitycatalog/etc/conf/hibernate.properties:ro
+    healthcheck:
+      # No curl and no wget in the UC image. Bash's /dev/tcp is the portable
+      # readiness probe when the image ships nothing but a JRE and a shell.
+      # /dev/tcp is a bash builtin, not a real path, so CMD-SHELL (which runs
+      # sh) fails with "nonexistent directory". Invoke bash explicitly.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # --- Compute layer -------------------------------------------------------
+  # A standalone cluster rather than local[*]: the point of the demo is to
+  # show work being distributed to executors that a bank would scale out.
+  spark-master:
+    build:
+      context: ..
+      dockerfile: docker/spark/Dockerfile
+      args:
+        SPARK_IMAGE: ${SPARK_IMAGE}
+        DELTA_ARTIFACT: ${DELTA_ARTIFACT}
+        DELTA_VERSION: ${DELTA_VERSION}
+        UC_CONNECTOR_VERSION: ${UC_CONNECTOR_VERSION}
+        HADOOP_VERSION: ${HADOOP_VERSION}
+        AWS_SDK_VERSION: ${AWS_SDK_VERSION}
+        SCALA_VERSION: ${SCALA_VERSION}
+        SPARK_VERSION: ${SPARK_VERSION}
+    image: lakehouse/spark:${SPARK_VERSION}
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      --host spark-master --port 7077 --webui-port 8080
+    environment: &spark-env
+      SPARK_NO_DAEMONIZE: "true"
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: us-east-1
+    ports:
+      - "7077:7077"
+      - "8090:8080"   # master UI. 8080 on the host belongs to Unity Catalog.
+
+  spark-worker-1: &worker
+    image: lakehouse/spark:${SPARK_VERSION}
+    depends_on: [spark-master]
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077 --cores 2 --memory 2g --webui-port 8081
+    environment: *spark-env
+    ports:
+      - "8091:8081"
+
+  spark-worker-2:
+    <<: *worker
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077 --cores 2 --memory 2g --webui-port 8081
+    ports:
+      - "8092:8081"
+
+  # The driver. Submits to the cluster in client mode, so the Spark UI on 4040
+  # belongs to the job and the executors live on the workers.
+  app:
+    image: lakehouse/spark:${SPARK_VERSION}
+    depends_on:
+      unitycatalog:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      <<: *spark-env
+      SPARK_MASTER_URL: spark://spark-master:7077
+      LAKEHOUSE_BUCKET: ${LAKEHOUSE_BUCKET}
+      STORAGE_ROOT: s3a://${LAKEHOUSE_BUCKET}
+      UC_URI: http://unitycatalog:8080
+    volumes:
+      - ../src:/opt/lakehouse/src:ro
+      - ../model:/opt/lakehouse/model:ro
+      - ../data:/opt/lakehouse/data
+      - ../tests:/opt/lakehouse/tests:ro
+      - ../scripts:/opt/lakehouse/scripts:ro
+    ports:
+      - "4040:4040"   # job UI while a job is running
+    # Stay up so `docker compose exec app ...` works as a workbench.
+    command: ["sleep", "infinity"]
+
+volumes:
+  minio-data:
+  catalog-db-data:
