@@ -1,6 +1,17 @@
 # A reviewer clones the repo, runs one command, and gets a populated lakehouse on local disk
 
-- **Status:** 🔵 Not started
+- **Status:** ⏸ Superseded by 2026-08-08-lakehouse-on-minio
+
+> **2026-08-08: superseded before execution.** This plan sequenced the brief
+> literally: local filesystem first, Docker and MinIO deferred to a later
+> phase. The requirement changed the same day to a Compose stack on MinIO with
+> a Spark cluster and Unity Catalog, needed working by end of day. No phase had
+> started, so rather than rewrite eight phase files around a different premise
+> the plan is left intact as a record of the original sequencing, and the work
+> continues in the successor plan,
+> [2026-08-08-lakehouse-on-minio](../2026-08-08-lakehouse-on-minio/). The storage-seam reasoning in phase 01
+> survived and is now proven by construction rather than by test: the pipeline
+> only ever sees `s3a://`.
 
 Phase 1 of `docs/initial-prompt.md`: the model spec, the full bronze, silver
 and gold layers over a retail banking domain, the tests that prove the
