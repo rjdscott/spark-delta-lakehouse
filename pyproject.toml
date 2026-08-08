@@ -7,6 +7,16 @@ requires-python = ">=3.10"
 # pinning it locally would invite a version that disagrees with the cluster.
 dependencies = ["pyyaml>=6"]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Declared so `uv sync` installs the package. Without it, imports only work
+# when the caller sets PYTHONPATH, which three different places were doing
+# three different ways.
+[tool.hatch.build.targets.wheel]
+packages = ["src/lakehouse"]
+
 [tool.ruff]
 line-length = 100
 extend-exclude = ["warehouse"]
@@ -15,7 +25,7 @@ extend-exclude = ["warehouse"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
-pythonpath = ["scripts", "src"]
+pythonpath = ["scripts"]
 testpaths = ["tests"]
 
 [dependency-groups]

@@ -28,7 +28,7 @@ test: ## Run tests
 	$(UV) run pytest -q
 
 generate: ## Generate the seeded source CSVs into data/raw
-	PYTHONPATH=src $(UV) run python -m lakehouse.generate --out data/raw
+	$(UV) run python -m lakehouse.generate --out data/raw
 
 stack-up: ## Build and start the lakehouse stack
 	$(COMPOSE) up -d --build

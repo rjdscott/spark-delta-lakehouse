@@ -18,7 +18,7 @@ VALID = {
     "layer": "silver",
     "kind": "entity",
     "grain": "One row per thing per version of its tracked attributes.",
-    "source": "bronze_thing",
+    "source_spec": "bronze_thing",
     "business_key": ["thing_id"],
     "history": {"type": "scd2", "sequence_by": "updated_at"},
     "attributes": [
@@ -109,3 +109,18 @@ def test_scd2_tables_get_validity_columns_and_bronze_gets_lineage():
     assert {"_ingest_ts", "_source_file", "_batch_id"} <= bronze
     # Lineage belongs to bronze only; silver is conformed, not raw.
     assert "_source_file" not in silver
+
+
+def test_a_spec_must_declare_exactly_one_source(tmp_path):
+    """One overloaded `source` needed a layer-dependent branch to validate.
+    Two fields make the rule unconditional."""
+    import yaml
+
+    from lakehouse.spec import load_all
+
+    raw = copy.deepcopy(VALID)
+    raw["source_file"] = "thing.csv"  # now both are set
+    (tmp_path / "silver_thing.yml").write_text(yaml.safe_dump(raw))
+
+    with pytest.raises(SpecError, match="exactly one of source_file and source_spec"):
+        load_all(tmp_path)

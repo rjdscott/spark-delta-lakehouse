@@ -35,9 +35,9 @@ def columns(spec: Spec) -> list[tuple[str, str, str | None]]:
     """Physical columns: the declared attributes plus whatever the layer adds."""
     out = [(a.name, a.type, a.comment) for a in spec.attributes]
     if spec.layer == "bronze":
-        out += [(n, t, c) for n, t, c in LINEAGE_COLUMNS]
+        out += list(LINEAGE_COLUMNS)
     if spec.history_type == "scd2":
-        out += [(n, t, c) for n, t, c in SCD2_COLUMNS]
+        out += list(SCD2_COLUMNS)
     return out
 
 

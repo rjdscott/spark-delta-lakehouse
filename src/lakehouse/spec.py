@@ -25,7 +25,7 @@ starts to look like a language, write the logic directly instead.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -46,7 +46,8 @@ SPEC_KEYS = {
     "layer",
     "kind",
     "grain",
-    "source",
+    "source_file",
+    "source_spec",
     "business_key",
     "history",
     "attributes",
@@ -85,8 +86,13 @@ class Spec:
     history_type: str
     sequence_by: str
     attributes: tuple[Attribute, ...]
-    source: str | None = None
-    relationships: tuple[Relationship, ...] = field(default=())
+    # Two fields rather than one overloaded `source`: bronze reads a file,
+    # every other layer reads another spec. One name for both meanings needs
+    # a layer-dependent validation branch, and invites the next entity to
+    # pick the wrong one.
+    source_file: str | None = None
+    source_spec: str | None = None
+    relationships: tuple[Relationship, ...] = ()
 
     @property
     def table(self) -> str:
@@ -180,7 +186,8 @@ def parse(raw: dict, origin: str) -> Spec:
         layer=raw["layer"],
         kind=raw["kind"],
         grain=grain,
-        source=raw.get("source"),
+        source_file=raw.get("source_file"),
+        source_spec=raw.get("source_spec"),
         business_key=tuple(raw["business_key"]),
         history_type=history["type"],
         sequence_by=history["sequence_by"],
@@ -200,8 +207,15 @@ def load_all(directory: Path | None = None) -> dict[str, Spec]:
     # Cross-spec checks come last, because they need the whole set. A dangling
     # relationship is the error most likely to survive review.
     for spec in specs.values():
-        if spec.source and spec.layer != "bronze":
-            _require(spec.source in specs, f"{spec.name}: source '{spec.source}' is not a spec")
+        _require(
+            bool(spec.source_file) != bool(spec.source_spec),
+            f"{spec.name}: exactly one of source_file and source_spec is required",
+        )
+        if spec.source_spec:
+            _require(
+                spec.source_spec in specs,
+                f"{spec.name}: source_spec '{spec.source_spec}' is not a spec",
+            )
         for rel in spec.relationships:
             _require(rel.to in specs, f"{spec.name}: relationship to '{rel.to}' is not a spec")
     return specs

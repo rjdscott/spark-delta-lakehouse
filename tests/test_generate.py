@@ -8,8 +8,8 @@ pipeline handles it would start passing for the wrong reason.
 from __future__ import annotations
 
 import csv
+import datetime as dt
 import hashlib
-from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -51,15 +51,32 @@ def test_defect_1_exact_duplicate_rows_in_every_source(raw):
 
 
 def test_defect_2_a_party_changes_address_twice_in_one_day(raw):
-    rows = read(raw, BATCH_DATES[0], "party")
-    per_party_day = Counter((r["party_id"], r["updated_at"][:10]) for r in rows)
-    assert any(count >= 2 for count in per_party_day.values())
+    """Two *distinct* timestamps on one date.
 
-    pid = next(p for (p, _), c in per_party_day.items() if c >= 2)
-    stamps = sorted({r["updated_at"] for r in rows if r["party_id"] == pid})
-    # Two versions on the same date at different times: an effective range
-    # grained to the day cannot represent this.
-    assert len({s[:10] for s in stamps}) < len(stamps)
+    Counting rows per (party, date) is not enough: defect 1 plants exact
+    duplicates, so a duplicated party has two rows on one date without having
+    changed at all. Ten of the eleven candidates in batch 1 are duplicates,
+    and an earlier version of this test passed only because the real one
+    happened to sort first.
+    """
+    rows = read(raw, BATCH_DATES[0], "party")
+
+    stamps_by_party: dict[str, set[str]] = {}
+    for r in rows:
+        stamps_by_party.setdefault(r["party_id"], set()).add(r["updated_at"])
+
+    same_day = {
+        pid: stamps
+        for pid, stamps in stamps_by_party.items()
+        if len(stamps) > 1 and len({s[:10] for s in stamps}) < len(stamps)
+    }
+    assert same_day, "no party has two distinct timestamps on one date"
+
+    # An effective range grained to the day cannot represent this, which is
+    # the whole reason SCD2 here is timestamp-grained.
+    pid, stamps = sorted(same_day.items())[0]
+    addresses = {r["address_line"] for r in rows if r["party_id"] == pid}
+    assert len(addresses) > 1, f"{pid} has two timestamps but one address"
 
 
 def test_defect_3_a_record_arrives_out_of_sequence(raw):
@@ -79,9 +96,17 @@ def test_defect_4_batch_1_transactions_reference_accounts_that_arrive_later(raw)
 
 def test_defect_5_settlement_lags_the_event_by_up_to_five_days(raw):
     rows = read(raw, BATCH_DATES[0], "transaction")
-    lags = {(r["posted_ts"][:10] != r["txn_ts"][:10]) for r in rows}
-    assert True in lags, "nothing posts on a later day than it occurred"
-    assert all(r["posted_ts"] >= r["txn_ts"] for r in rows), "settlement precedes the event"
+
+    lags = [
+        dt.datetime.fromisoformat(r["posted_ts"]) - dt.datetime.fromisoformat(r["txn_ts"])
+        for r in rows
+    ]
+
+    assert any(lag.days >= 1 for lag in lags), "nothing posts later than it occurred"
+    assert min(lags) >= dt.timedelta(0), "settlement precedes the event"
+    # The bound is in the name, so it belongs in the assertion. Without it a
+    # fifty-day lag would pass.
+    assert max(lags) <= dt.timedelta(days=5, hours=1), f"lag exceeds five days: {max(lags)}"
 
 
 def test_defect_6_nulls_in_risk_rating_and_merchant_category(raw):
@@ -100,3 +125,52 @@ def test_defect_7_parties_are_hard_deleted_between_batches(raw):
     assert deleted, "no party disappears between batches"
     # Absence is only meaningful because party extracts are full snapshots.
     assert len(b2) < len(b1)
+
+
+def test_amount_sign_agrees_with_transaction_type(raw):
+    """Without a sign convention, summing amount is meaningless and every
+    business example built on it is nonsense."""
+    for batch in BATCH_DATES:
+        for r in read(raw, batch, "transaction"):
+            amount = float(r["amount"])
+            if r["txn_type"] in ("DEBIT", "FEE"):
+                assert amount <= 0, f"{r['txn_id']} is a {r['txn_type']} of {amount}"
+            else:
+                assert amount >= 0, f"{r['txn_id']} is a {r['txn_type']} of {amount}"
+
+
+def test_merchant_categories_fit_the_product(raw):
+    """A home loan does not buy groceries."""
+    accounts = {r["account_id"]: r for r in read(raw, BATCH_DATES[2], "account")}
+    seen: dict[str, set[str]] = {}
+    for r in read(raw, BATCH_DATES[2], "transaction"):
+        account = accounts.get(r["account_id"])
+        if account and r["merchant_category"]:
+            seen.setdefault(account["product_type"], set()).add(r["merchant_category"])
+
+    assert "HOME_LOAN" not in seen
+    assert "TERM_DEPOSIT" not in seen
+    assert seen["SAVINGS"] == {"ATM"}
+    assert "TRAVEL" not in seen["TRANSACTION"]
+
+
+def test_no_transactions_after_an_account_closes(raw):
+    """A closed account still transacting is the first thing a reviewer
+    notices, and it would corrupt the accumulating snapshot in gold."""
+    accounts = {r["account_id"]: r for r in read(raw, BATCH_DATES[2], "account")}
+    for r in read(raw, BATCH_DATES[2], "transaction"):
+        account = accounts.get(r["account_id"])
+        if account and account["close_date"]:
+            assert r["txn_ts"][:10] < account["close_date"], (
+                f"{r['txn_id']} on {r['account_id']} closed {account['close_date']}"
+            )
+
+
+def test_geography_is_internally_consistent(raw):
+    """Suburb, state and postcode travel together or the address is fiction."""
+    pairs = {(r["suburb"], r["state"], r["postcode"]) for r in read(raw, BATCH_DATES[0], "party")}
+    by_suburb: dict[str, set] = {}
+    for suburb, state, postcode in pairs:
+        by_suburb.setdefault(suburb, set()).add((state, postcode))
+    for suburb, values in by_suburb.items():
+        assert len(values) == 1, f"{suburb} appears in {values}"

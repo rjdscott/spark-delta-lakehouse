@@ -2,7 +2,7 @@ name: silver_transaction
 layer: silver
 kind: entity
 grain: One row per transaction event, deduplicated and typed, with no dimensional resolution.
-source: bronze_transaction
+source_spec: bronze_transaction
 business_key: [txn_id]
 history:
   type: scd1

@@ -45,8 +45,10 @@ def main() -> int:
     print(f"tables in bronze     : {tables}")
 
     # The executors are the point of running a cluster rather than local[*].
-    backend = spark.sparkContext._jsc.sc().schedulerBackend()
-    print(f"executors registered : {backend.getExecutorIds().size()}")
+    # statusTracker is public API; the _jsc route across the JVM bridge is not
+    # and breaks on upgrade.
+    executors = [e for e in spark.sparkContext.statusTracker().getExecutorInfos()]
+    print(f"executors registered : {len(executors)}")
 
     spark.stop()
     return 0 if rows == 1000 else 1

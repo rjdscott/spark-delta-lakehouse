@@ -2,7 +2,7 @@ name: silver_account
 layer: silver
 kind: entity
 grain: One row per account, carrying its latest known state.
-source: bronze_account
+source_spec: bronze_account
 business_key: [account_id]
 history:
   type: scd1

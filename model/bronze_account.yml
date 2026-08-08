@@ -2,7 +2,7 @@ name: bronze_account
 layer: bronze
 kind: entity
 grain: One row per account record as it appeared in one source extract, including duplicates.
-source: account
+source_file: account
 business_key: [account_id]
 history:
   type: append
@@ -11,7 +11,7 @@ attributes:
   - {name: account_id,   type: string, tracked: false}
   - {name: party_id,     type: string, tracked: false}
   - {name: product_type, type: string, tracked: false}
-  - {name: open_date,    type: date,   tracked: false}
-  - {name: close_date,   type: date,   tracked: false, nullable: true}
+  - {name: open_date,    type: string,   tracked: false}
+  - {name: close_date,   type: string,   tracked: false, nullable: true}
   - {name: status,       type: string, tracked: false}
-  - {name: updated_at,   type: timestamp, tracked: false}
+  - {name: updated_at,   type: string, tracked: false}

@@ -2,7 +2,7 @@ name: bronze_transaction
 layer: bronze
 kind: entity
 grain: One row per transaction event as it appeared in one source extract, including duplicates.
-source: transaction
+source_file: transaction
 business_key: [txn_id]
 history:
   type: append
@@ -10,9 +10,9 @@ history:
 attributes:
   - {name: txn_id,            type: string, tracked: false}
   - {name: account_id,        type: string, tracked: false}
-  - {name: txn_ts,            type: timestamp, tracked: false}
-  - {name: posted_ts,         type: timestamp, tracked: false}
-  - {name: amount,            type: "decimal(18,2)", tracked: false}
+  - {name: txn_ts,            type: string, tracked: false}
+  - {name: posted_ts,         type: string, tracked: false}
+  - {name: amount,            type: string, tracked: false}
   - {name: currency,          type: string, tracked: false}
   - {name: merchant_category, type: string, tracked: false, nullable: true}
   - {name: txn_type,          type: string, tracked: false}

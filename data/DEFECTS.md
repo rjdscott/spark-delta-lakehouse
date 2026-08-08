@@ -8,6 +8,23 @@ Every defect has a test in `tests/test_generate.py` asserting it is still
 present. If a defect stops being planted, the test that proves the pipeline
 handles it would start passing for the wrong reason.
 
+## What is coherent on purpose
+
+Separately from the defects, the data is internally consistent, because a
+business example built on incoherent numbers is worse than no example. See
+[ADR 0006](../docs/adr/0006-coherence-over-fidelity-in-synthetic-data.md).
+
+| Rule | Why it matters | Test |
+|------|----------------|------|
+| Debits and fees negative, credits and interest positive | summing `amount` means something | `test_amount_sign_agrees_with_transaction_type` |
+| Every account opens with a deposit | a running balance is a cumulative sum, not a walk from zero | covered by the balance in `fact_daily_balance` |
+| Merchant categories fit the product | a home loan does not buy groceries | `test_merchant_categories_fit_the_product` |
+| No activity after an account closes | the accumulating snapshot stays coherent | `test_no_transactions_after_an_account_closes` |
+| Suburb, state and postcode agree | an address is not fiction | `test_geography_is_internally_consistent` |
+
+Not simulated, deliberately: interest accrual formulas, fraud patterns,
+foreign exchange, fee schedules, seasonality.
+
 ## Extract shapes
 
 The three sources are not extracted the same way, and the difference is load
@@ -40,7 +57,10 @@ date-grained. A `DATE` effective_from collapses these two versions into one,
 or produces a zero-length range, and the party's history silently loses a
 version.
 
-**Proven by:** `test_defect_2_a_party_changes_address_twice_in_one_day`
+**Proven by:** `test_defect_2_a_party_changes_address_twice_in_one_day`, which
+selects on two *distinct timestamps* on one date rather than on two rows.
+Defect 1 plants exact duplicates, so counting rows would let a duplicated
+party satisfy this test without having changed at all.
 
 ### 3. Records arriving out of sequence
 
@@ -103,7 +123,7 @@ three are defensible and they answer different questions.
 ## Regenerating
 
 ```bash
-PYTHONPATH=src uv run python -m lakehouse.generate --out data/raw
+make generate
 ```
 
 The seed is fixed at 42. The same seed produces byte-identical files, asserted

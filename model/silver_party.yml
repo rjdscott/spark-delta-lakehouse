@@ -2,7 +2,7 @@ name: silver_party
 layer: silver
 kind: entity
 grain: One row per party per version of its tracked attributes, effective over a timestamp range.
-source: bronze_party
+source_spec: bronze_party
 business_key: [party_id]
 history:
   type: scd2

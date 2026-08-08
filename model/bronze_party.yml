@@ -2,7 +2,7 @@ name: bronze_party
 layer: bronze
 kind: entity
 grain: One row per party record as it appeared in one source extract, including duplicates.
-source: party
+source_file: party
 business_key: [party_id]
 history:
   type: append
@@ -16,4 +16,4 @@ attributes:
   - {name: postcode,     type: string, tracked: false}
   - {name: risk_rating,  type: string, tracked: false, nullable: true}
   - {name: segment,      type: string, tracked: false}
-  - {name: updated_at,   type: timestamp, tracked: false}
+  - {name: updated_at,   type: string, tracked: false}
