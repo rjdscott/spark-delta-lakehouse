@@ -20,6 +20,11 @@ LINEAGE_COLUMNS = (
     ("_ingest_ts", "timestamp", "When this row was written to bronze"),
     ("_source_file", "string", "The extract file this row was read from"),
     ("_batch_id", "string", "The batch date of the extract"),
+    (
+        "_rescued_data",
+        "string",
+        "JSON of columns the source sent that the spec does not declare",
+    ),
 )
 
 # Columns an SCD2 table needs to express a version's validity. Also invariant,

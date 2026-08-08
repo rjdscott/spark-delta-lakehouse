@@ -8,7 +8,7 @@ the demo / P2 soon / P3 nice.
   [`01-code-and-model.md#h-01`](01-code-and-model.md#h-01)
 - [x] **H-02** P0: bronze attributes are now `string`. Coercion is silver's job
   and rescued data depends on it. [`#h-02`](01-code-and-model.md#h-02)
-- [ ] **H-03** P0: bring the spec conformance test forward to phase 05, where
+- [x] **H-03** P0: bring the spec conformance test forward to phase 05, where
   the first tables are created. [`#h-03`](01-code-and-model.md#h-03)
 - [x] **M-04** P1: sign convention and opening balances in the generator, or
   every business example is nonsense. [`#m-04`](01-code-and-model.md#m-04)

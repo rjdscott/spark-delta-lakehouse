@@ -14,6 +14,6 @@
 
 ## Carried from review-03
 
-- [ ] **H-03** P0: spec conformance test, before phase 05 creates tables.
+- [x] **H-03** P0: spec conformance test, before phase 05 creates tables.
 - [ ] **M-07** P2: one source for the MinIO credentials.
 - [ ] **L-11** P2: state what CI does and does not cover.

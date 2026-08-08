@@ -2,7 +2,7 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell
+.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
 
@@ -49,6 +49,18 @@ stack-logs: ## Tail logs for all services
 stack-smoke: ## Prove cluster + catalog + MinIO + Delta end to end
 	$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
 		--master spark://spark-master:7077 scripts/smoke_stack.py
+
+seed: ## Upload the generated CSVs to the MinIO landing zone
+	docker run --rm --network lakehouse_default -v $(PWD)/data/raw:/raw:ro \
+		--entrypoint sh minio/mc:RELEASE.2024-11-21T17-21-54Z -c \
+		"mc alias set l http://minio:9000 lakehouse lakehouse123 >/dev/null && \
+		 mc mirror --overwrite /raw l/lakehouse/landing && mc ls -r l/lakehouse/landing | head -3"
+
+bronze: ## Load all three batches into bronze on the cluster
+	@for b in 2026-01-15 2026-02-15 2026-03-15; do \
+		$(COMPOSE) exec -T app /opt/spark/bin/spark-submit --master spark://spark-master:7077 \
+			scripts/run_bronze.py --batch $$b || exit 1; \
+	done
 
 stack-shell: ## Open a shell on the driver container
 	$(COMPOSE) exec app bash

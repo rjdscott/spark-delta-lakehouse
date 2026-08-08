@@ -106,7 +106,7 @@ def test_scd2_tables_get_validity_columns_and_bronze_gets_lineage():
     bronze = {name for name, _, _ in ddl.columns(specs["bronze_party"])}
 
     assert {"effective_from", "effective_to", "is_current"} <= silver
-    assert {"_ingest_ts", "_source_file", "_batch_id"} <= bronze
+    assert {"_ingest_ts", "_source_file", "_batch_id", "_rescued_data"} <= bronze
     # Lineage belongs to bronze only; silver is conformed, not raw.
     assert "_source_file" not in silver
 
