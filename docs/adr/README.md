@@ -43,4 +43,5 @@ line. Don't hand-edit.
 | [0002](0002-branch-rules-stay-honour-code.md) | Branch rules stay honour code | Accepted |
 | [0003](0003-version-matrix-for-the-local-lakehouse-stack.md) | Version matrix for the local lakehouse stack | Accepted |
 | [0004](0004-spark-session-catalog-until-unity-catalog-can-vend-for-minio.md) | Spark session catalog until Unity Catalog can vend for MinIO | Accepted |
+| [0005](0005-hive-metastore-as-the-working-catalog.md) | Hive Metastore as the working catalog | Accepted |
 <!-- index:end -->

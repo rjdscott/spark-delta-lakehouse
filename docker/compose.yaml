@@ -78,6 +78,53 @@ services:
       timeout: 3s
       retries: 30
 
+  hive-db:
+    image: ${POSTGRES_IMAGE}
+    environment:
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+      POSTGRES_DB: metastore
+    volumes:
+      - hive-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # The catalog the pipeline actually runs on. Persists in Postgres, so the
+  # tables survive `make stack-down`, and speaks thrift, so something other
+  # than this Spark cluster can read them.
+  hive-metastore:
+    build:
+      context: ..
+      dockerfile: docker/hive/Dockerfile
+      args:
+        HIVE_IMAGE: ${HIVE_IMAGE}
+        POSTGRES_JDBC_VERSION: ${POSTGRES_JDBC_VERSION}
+    image: lakehouse/hive-metastore:${HIVE_IMAGE_TAG:-4.0.1}
+    depends_on:
+      hive-db:
+        condition: service_healthy
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+      SERVICE_OPTS: >-
+        -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive-db:5432/metastore
+        -Djavax.jdo.option.ConnectionUserName=hive
+        -Djavax.jdo.option.ConnectionPassword=hive
+        -Dmetastore.warehouse.dir=s3a://${LAKEHOUSE_BUCKET}/warehouse
+    volumes:
+      - ./hive/core-site.xml:/opt/hive/conf/core-site.xml:ro
+    ports:
+      - "9083:9083"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9083"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+
   # --- Compute layer -------------------------------------------------------
   # A standalone cluster rather than local[*]: the point of the demo is to
   # show work being distributed to executors that a bank would scale out.
@@ -134,6 +181,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      hive-metastore:
+        condition: service_healthy
     environment:
       <<: *spark-env
       SPARK_MASTER_URL: spark://spark-master:7077
@@ -154,3 +203,4 @@ services:
 volumes:
   minio-data:
   catalog-db-data:
+  hive-db-data:

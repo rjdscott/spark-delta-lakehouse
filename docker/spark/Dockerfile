@@ -9,7 +9,17 @@
 # antlr, the UC client) that are easy to get subtly wrong by hand.
 
 ARG SPARK_IMAGE=apache/spark:4.0.0-scala2.13-java17-python3-ubuntu
+ARG HIVE_IMAGE=apache/hive:4.0.1
+
+# Spark bundles a Hive 2.3.10 metastore client, which calls the thrift method
+# get_table. Hive Metastore 4.0.1 removed it in favour of get_table_req, so the
+# bundled client fails with "Invalid method name: 'get_table'" the moment it
+# touches a table. Spark's supported answer is to point it at a different set
+# of client jars, so we carry the 4.0.1 ones from the Hive image.
+FROM ${HIVE_IMAGE} AS hive-client
+
 FROM ${SPARK_IMAGE}
+COPY --from=hive-client /opt/hive/lib /opt/hive-metastore-jars
 
 ARG DELTA_ARTIFACT=delta-spark_4.0_2.13
 ARG DELTA_VERSION=4.1.0

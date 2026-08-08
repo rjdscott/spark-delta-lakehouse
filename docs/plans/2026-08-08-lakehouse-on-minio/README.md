@@ -38,7 +38,7 @@ Non-goals:
 | NN | Phase | Status | Last update |
 |----|-------|--------|-------------|
 | 01 | [Compose stack on MinIO](phase-01-compose-stack-on-minio.md) | 🟢 Completed | 2026-08-08 |
-| 02 | [Catalog that survives a restart](phase-02-catalog-that-survives-a-restart.md) | 🔵 Not started | none |
+| 02 | [Catalog that survives a restart](phase-02-catalog-that-survives-a-restart.md) | 🟡 In progress | 2026-08-08 |
 | 03 | [Sources and seeded defects](phase-03-sources-and-seeded-defects.md) | 🔵 Not started | none |
 | 04 | [Model spec, loader, generated DDL](phase-04-model-spec-and-generated-ddl.md) | 🔵 Not started | none |
 | 05 | [Bronze](phase-05-bronze.md) | 🔵 Not started | none |

@@ -132,6 +132,28 @@ strings are quoted exactly, because they are what you will search for.
   Configuring the Unity Catalog catalog does not cover this: they are two
   different catalogs.
 
+- **`Invalid method name: 'get_table'` from the metastore.** Spark 4.0.0 ships
+  a Hive 2.3.10 metastore client; Hive Metastore 4.0.1 removed that thrift
+  method in favour of `get_table_req`. Point Spark at newer client jars with
+  `spark.sql.hive.metastore.version=4.0.1` and
+  `spark.sql.hive.metastore.jars.path=file:///opt/hive-metastore-jars/*`. The
+  image carries Hive 4.0.1's jars for this reason.
+
+- **`ClassNotFoundException: org.apache.hadoop.fs.s3a.S3AFileSystem` from the
+  metastore, not from Spark.** The metastore creates the warehouse directory
+  itself, so it needs `hadoop-aws` too. Match it to *Hive's* Hadoop (3.3.6,
+  AWS SDK v1), not Spark's (3.4.1, AWS SDK v2). Two SDK majors in one stack is
+  correct; they are separate JVMs.
+
+- **`Failed to create external path s3a://...` from the metastore, with the
+  s3a jars present.** Hadoop's `Configuration` reads XML from the classpath and
+  ignores JVM system properties, so `-Dfs.s3a.endpoint` passed through
+  `SERVICE_OPTS` silently does nothing. The settings must be in
+  `docker/hive/core-site.xml`.
+
+- **`curl` fails with exit code 127 building the Hive image.** The Hive image
+  ships no download tool. Fetch in a separate build stage that has one.
+
 - **A Spark job fails with `NoSuchMethodError` or `ClassNotFoundException`
   naming an AWS or Hadoop class.** The jar matrix is wrong. Do not bump
   versions to fix it; re-derive them per ADR 0003. `hadoop-aws` must equal the
@@ -153,7 +175,9 @@ strings are quoted exactly, because they are what you will search for.
 
 ## Last verified
 
-- **Last verified:** 2026-08-08 against `lakehouse/spark:4.0.0`, Unity Catalog
-  0.5.0, MinIO RELEASE.2025-09-07T16-13-09Z. Steps 1 to 6 were all executed;
-  `make stack-smoke` returned 1000 rows on 2 executors with the Delta log
-  present in MinIO.
+- **Last verified:** 2026-08-08 against `lakehouse/spark:4.0.0`, Hive
+  Metastore 4.0.1, Unity Catalog 0.5.0, MinIO RELEASE.2025-09-07T16-13-09Z.
+  Steps 1 to 6 all executed; `make stack-smoke` returned 1000 rows on 2
+  executors with the Delta log present in MinIO. Catalog persistence was
+  verified by `make stack-down` followed by `make stack-up`: `bronze.smoke`
+  was still registered with its 1000 rows.
