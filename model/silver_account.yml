@@ -1,0 +1,19 @@
+name: silver_account
+layer: silver
+kind: entity
+grain: One row per account, carrying its latest known state.
+source: bronze_account
+business_key: [account_id]
+history:
+  type: scd1
+  sequence_by: updated_at
+attributes:
+  - {name: account_id,   type: string, tracked: false}
+  - {name: party_id,     type: string, tracked: false}
+  - {name: product_type, type: string, tracked: false}
+  - {name: open_date,    type: date,   tracked: false}
+  - {name: close_date,   type: date,   tracked: false, nullable: true}
+  - {name: status,       type: string, tracked: false}
+  - {name: updated_at,   type: timestamp, tracked: false}
+relationships:
+  - {to: silver_party, column: party_id, kind: many_to_one}

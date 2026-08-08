@@ -1,0 +1,20 @@
+name: silver_transaction
+layer: silver
+kind: entity
+grain: One row per transaction event, deduplicated and typed, with no dimensional resolution.
+source: bronze_transaction
+business_key: [txn_id]
+history:
+  type: scd1
+  sequence_by: posted_ts
+attributes:
+  - {name: txn_id,            type: string, tracked: false}
+  - {name: account_id,        type: string, tracked: false}
+  - {name: txn_ts,            type: timestamp, tracked: false}
+  - {name: posted_ts,         type: timestamp, tracked: false}
+  - {name: amount,            type: "decimal(18,2)", tracked: false}
+  - {name: currency,          type: string, tracked: false}
+  - {name: merchant_category, type: string, tracked: false, nullable: true}
+  - {name: txn_type,          type: string, tracked: false}
+relationships:
+  - {to: silver_account, column: account_id, kind: many_to_one}
