@@ -156,14 +156,19 @@ def test_merchant_categories_fit_the_product(raw):
 
 def test_no_transactions_after_an_account_closes(raw):
     """A closed account still transacting is the first thing a reviewer
-    notices, and it would corrupt the accumulating snapshot in gold."""
-    accounts = {r["account_id"]: r for r in read(raw, BATCH_DATES[2], "account")}
-    for r in read(raw, BATCH_DATES[2], "transaction"):
-        account = accounts.get(r["account_id"])
-        if account and account["close_date"]:
-            assert r["txn_ts"][:10] < account["close_date"], (
-                f"{r['txn_id']} on {r['account_id']} closed {account['close_date']}"
-            )
+    notices, and it would corrupt the accumulating snapshot in gold.
+
+    Checked across every batch. An earlier version of this test read only the
+    last one and passed while 87 violations sat in batch 1.
+    """
+    for batch in BATCH_DATES:
+        accounts = {r["account_id"]: r for r in read(raw, batch, "account")}
+        for r in read(raw, batch, "transaction"):
+            account = accounts.get(r["account_id"])
+            if account and account["close_date"]:
+                assert r["txn_ts"][:10] < account["close_date"], (
+                    f"{r['txn_id']} on {r['account_id']} closed {account['close_date']}"
+                )
 
 
 def test_geography_is_internally_consistent(raw):
@@ -174,3 +179,55 @@ def test_geography_is_internally_consistent(raw):
         by_suburb.setdefault(suburb, set()).add((state, postcode))
     for suburb, values in by_suburb.items():
         assert len(values) == 1, f"{suburb} appears in {values}"
+
+
+def balances_by_product(raw) -> dict[str, list[float]]:
+    accounts = {r["account_id"]: r for r in read(raw, BATCH_DATES[2], "account")}
+    running: dict[str, float] = {}
+    for batch in BATCH_DATES:
+        for r in read(raw, batch, "transaction"):
+            running[r["account_id"]] = running.get(r["account_id"], 0.0) + float(r["amount"])
+
+    out: dict[str, list[float]] = {}
+    for account_id, balance in running.items():
+        if account_id in accounts:
+            out.setdefault(accounts[account_id]["product_type"], []).append(balance)
+    return out
+
+
+def median(values: list[float]) -> float:
+    return sorted(values)[len(values) // 2]
+
+
+# The balance rule was the only coherence rule in data/DEFECTS.md without a
+# test, and it was the rule that broke: credit cards reached a median of
+# -32,589 before this existed. Ranges are deliberately wide. This is a
+# plausibility guard, not a distribution assertion.
+PLAUSIBLE_MEDIAN = {
+    "TRANSACTION": (0, 40_000),
+    "SAVINGS": (500, 150_000),
+    "TERM_DEPOSIT": (5_000, 400_000),
+    "CREDIT_CARD": (-20_000, 2_000),
+    "HOME_LOAN": (-1_200_000, -50_000),
+}
+
+
+@pytest.mark.parametrize("product", sorted(PLAUSIBLE_MEDIAN))
+def test_balances_are_plausible_for_the_product(raw, product):
+    balances = balances_by_product(raw)[product]
+    low, high = PLAUSIBLE_MEDIAN[product]
+
+    assert low <= median(balances) <= high, (
+        f"{product} median balance {median(balances):,.0f} outside [{low:,}, {high:,}]"
+    )
+
+
+def test_a_dormant_account_is_quiet_not_dead(raw):
+    """Status is current state; transactions are history. Gating January's
+    activity on a status reached in March erases the past."""
+    accounts = {r["account_id"]: r for r in read(raw, BATCH_DATES[2], "account")}
+    dormant = {a for a, r in accounts.items() if r["status"] == "DORMANT"}
+    active = {r["account_id"] for batch in BATCH_DATES for r in read(raw, batch, "transaction")}
+
+    assert dormant, "no dormant accounts to check"
+    assert dormant <= active, "a dormant account has no history at all"

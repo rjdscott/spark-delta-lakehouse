@@ -85,35 +85,35 @@ SEGMENT_INCOME = {
 PRODUCT_PROFILE = {
     "TRANSACTION": {
         "opening": (400, 4000),
-        "spend_per_month": (18, 45),
+        "spend_share": (0.45, 0.75),
         "categories": ("GROCERY", "FUEL", "DINING", "ATM", "UTILITIES", "HEALTH"),
         "salary": True,
         "monthly_interest": False,
     },
     "SAVINGS": {
         "opening": (2000, 60000),
-        "spend_per_month": (0, 2),
+        "spend_share": (0.0, 0.02),
         "categories": ("ATM",),
         "salary": False,
         "monthly_interest": True,
     },
     "CREDIT_CARD": {
-        "opening": (0, 0),
-        "spend_per_month": (12, 38),
+        "opening": (-1200, 0),
+        "spend_share": (0.12, 0.35),
         "categories": ("GROCERY", "DINING", "TRAVEL", "HEALTH", "FUEL"),
         "salary": False,
         "monthly_interest": False,
     },
     "TERM_DEPOSIT": {
         "opening": (10000, 250000),
-        "spend_per_month": (0, 0),
+        "spend_share": (0.0, 0.0),
         "categories": (),
         "salary": False,
         "monthly_interest": True,
     },
     "HOME_LOAN": {
         "opening": (-850000, -220000),
-        "spend_per_month": (0, 0),
+        "spend_share": (0.0, 0.0),
         "categories": (),
         "salary": False,
         "monthly_interest": False,
@@ -291,14 +291,33 @@ class Generator:
             "txn_type": txn_type,
         }
 
-    def _active(self, account: dict, day: dt.date) -> bool:
-        """An account transacts only while it is open. A closed account still
-        producing activity is the first thing a reviewer notices."""
-        if _date(account["open_date"]) > day:
+    def _open_during(self, account: dict, start: dt.date, end: dt.date) -> bool:
+        """Was the account open at any point in this window?
+
+        Deliberately not a function of `status`. Status is the account's
+        *current* state; transactions are historical events. Gating January's
+        activity on a status the account only reached in March is current state
+        standing in for history, which is the confusion this whole repo argues
+        against.
+        """
+        if _date(account["open_date"]) > end:
             return False
-        if account["close_date"] and _date(account["close_date"]) <= day:
-            return False
-        return account["status"] != "DORMANT"
+        return not (account["close_date"] and _date(account["close_date"]) <= start)
+
+    def _last_active_day(self, account: dict, end: dt.date) -> dt.date:
+        """Activity stops at closure, not at the end of the period."""
+        if account["close_date"]:
+            closed = _date(account["close_date"])
+            if closed <= end:
+                return closed - dt.timedelta(days=1)
+        return end
+
+    def _moment(self, first: dt.date, last: dt.date) -> dt.datetime:
+        """A random instant inside the window the account was actually open."""
+        span = max((last - first).days, 0)
+        return dt.datetime.combine(first, dt.time.min) + dt.timedelta(
+            days=self.rng.randint(0, span), seconds=self.rng.randint(0, 86399)
+        )
 
     def _transactions(self, batch: str, index: int) -> list[dict]:
         period_end = _date(batch)
@@ -310,59 +329,91 @@ class Generator:
             profile = PRODUCT_PROFILE[account["product_type"]]
             party = self.parties[account["party_id"]]
 
-            def moment() -> dt.datetime:
-                return dt.datetime.combine(period_start, dt.time.min) + dt.timedelta(
-                    days=self.rng.randint(0, 29), seconds=self.rng.randint(0, 86399)
-                )
+            if not self._open_during(account, period_start, period_end):
+                continue
 
-            # The opening deposit, once, so a running balance is a real
-            # cumulative sum rather than a walk from zero.
+            last = self._last_active_day(account, period_end)
+            first = max(period_start, _date(account["open_date"]))
+            if last < first:
+                continue
+
+            # The balance brought forward into the observation window. Not the
+            # account's original deposit: that happened years earlier, outside
+            # every batch, and dating it inside one would be a different lie.
             if index == 0:
                 low, high = profile["opening"]
                 if low or high:
-                    opening = self.rng.uniform(low, high)
+                    carried = self.rng.uniform(low, high)
                     rows.append(
                         self._txn(
                             account,
-                            dt.datetime.combine(period_start, dt.time(0, 5)),
-                            "CREDIT" if opening >= 0 else "DEBIT",
+                            dt.datetime.combine(first, dt.time(0, 5)),
+                            "CREDIT" if carried >= 0 else "DEBIT",
                             "",
-                            opening,
+                            carried,
                         )
                     )
 
-            if not self._active(account, period_end):
-                continue
+            # A dormant account is quiet, not dead. Zero activity would also
+            # make it indistinguishable from a closed one.
+            quiet = 0.15 if account["status"] == "DORMANT" else 1.0
+            income_low, income_high = SEGMENT_INCOME[party["segment"]]
+            income = self.rng.uniform(income_low, income_high)
 
             if profile["salary"]:
-                low, high = SEGMENT_INCOME[party["segment"]]
-                rows.append(self._txn(account, moment(), "CREDIT", "", self.rng.uniform(low, high)))
+                rows.append(self._txn(account, self._moment(first, last), "CREDIT", "", income))
 
             if profile["monthly_interest"]:
-                rows.append(self._txn(account, moment(), "INTEREST", "", self.rng.uniform(2, 240)))
-
-            if account["product_type"] == "HOME_LOAN":
-                rows.append(self._txn(account, moment(), "DEBIT", "", self.rng.uniform(1400, 4800)))
-
-            if account["product_type"] == "CREDIT_CARD" and self.rng.random() < 0.8:
-                rows.append(self._txn(account, moment(), "CREDIT", "", self.rng.uniform(200, 4000)))
-
-            low, high = profile["spend_per_month"]
-            for _ in range(self.rng.randint(low, high) if high else 0):
-                category = self.rng.choice(profile["categories"])
-                amount_low, amount_high = CATEGORY_AMOUNT[category]
                 rows.append(
                     self._txn(
-                        account,
-                        moment(),
-                        "DEBIT",
-                        category,
-                        self.rng.uniform(amount_low, amount_high),
+                        account, self._moment(first, last), "INTEREST", "", self.rng.uniform(2, 240)
                     )
                 )
 
-            if self.rng.random() < 0.15:
-                rows.append(self._txn(account, moment(), "FEE", "", self.rng.uniform(2, 35)))
+            if account["product_type"] == "HOME_LOAN":
+                rows.append(
+                    self._txn(
+                        account,
+                        self._moment(first, last),
+                        "DEBIT",
+                        "",
+                        self.rng.uniform(1400, 4800),
+                    )
+                )
+
+            # Spend is budgeted from income rather than drawn as a free count,
+            # so an everyday account does not drift permanently overdrawn.
+            budget = income * self.rng.uniform(*profile["spend_share"]) * quiet
+            spent = 0.0
+            categories = profile["categories"]
+            while categories and spent < budget:
+                category = self.rng.choice(categories)
+                amount_low, amount_high = CATEGORY_AMOUNT[category]
+                amount = self.rng.uniform(amount_low, min(amount_high, max(amount_low, budget)))
+                rows.append(
+                    self._txn(account, self._moment(first, last), "DEBIT", category, amount)
+                )
+                spent += amount
+
+            # A credit card is repaid. Without this the balance runs away, and
+            # a card with no limit is the number a viewer checks first.
+            if account["product_type"] == "CREDIT_CARD" and spent:
+                rows.append(
+                    self._txn(
+                        account,
+                        self._moment(first, last),
+                        "CREDIT",
+                        "",
+                        spent * self.rng.uniform(0.85, 1.0),
+                    )
+                )
+
+            if self.rng.random() < 0.15 * quiet:
+                rows.append(
+                    self._txn(
+                        account, self._moment(first, last), "FEE", "", self.rng.uniform(2, 35)
+                    )
+                )
 
         return rows
 

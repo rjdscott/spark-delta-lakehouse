@@ -17,7 +17,8 @@ business example built on incoherent numbers is worse than no example. See
 | Rule | Why it matters | Test |
 |------|----------------|------|
 | Debits and fees negative, credits and interest positive | summing `amount` means something | `test_amount_sign_agrees_with_transaction_type` |
-| Every account opens with a deposit | a running balance is a cumulative sum, not a walk from zero | covered by the balance in `fact_daily_balance` |
+| Balances are plausible for the product | a credit card has a limit; an everyday account is not permanently overdrawn | `test_balances_are_plausible_for_the_product` |
+| A dormant account is quiet, not dead | status is current state, transactions are history | `test_a_dormant_account_is_quiet_not_dead` |
 | Merchant categories fit the product | a home loan does not buy groceries | `test_merchant_categories_fit_the_product` |
 | No activity after an account closes | the accumulating snapshot stays coherent | `test_no_transactions_after_an_account_closes` |
 | Suburb, state and postcode agree | an address is not fiction | `test_geography_is_internally_consistent` |
