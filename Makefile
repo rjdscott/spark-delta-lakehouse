@@ -2,7 +2,7 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell
+.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
 
@@ -26,6 +26,9 @@ lint: ## Lint and format-check
 
 test: ## Run tests
 	$(UV) run pytest -q
+
+generate: ## Generate the seeded source CSVs into data/raw
+	PYTHONPATH=src $(UV) run python -m lakehouse.generate --out data/raw
 
 stack-up: ## Build and start the lakehouse stack
 	$(COMPOSE) up -d --build
