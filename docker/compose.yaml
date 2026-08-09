@@ -159,7 +159,7 @@ services:
     depends_on: [spark-master]
     command: >
       /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
-      spark://spark-master:7077 --cores 2 --memory 2g --webui-port 8081
+      spark://spark-master:7077 --cores 4 --memory 6g --webui-port 8081
     environment: *spark-env
     ports:
       - "8091:8081"
@@ -168,7 +168,7 @@ services:
     <<: *worker
     command: >
       /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
-      spark://spark-master:7077 --cores 2 --memory 2g --webui-port 8081
+      spark://spark-master:7077 --cores 4 --memory 6g --webui-port 8081
     ports:
       - "8092:8081"
 

@@ -1,6 +1,6 @@
 # A demonstrable retail banking lakehouse: raw CSV to conformed star schema, on object storage, in a catalog
 
-- **Status:** 🟡 In progress
+- **Status:** 🟢 Completed
 
 Supersedes [2026-08-08-phase-1-lakehouse](../2026-08-08-phase-1-lakehouse/),
 which sequenced local filesystem first. The stack is now the starting point,
@@ -40,12 +40,12 @@ Non-goals:
 | 01 | [Compose stack on MinIO](phase-01-compose-stack-on-minio.md) | 🟢 Completed | 2026-08-08 |
 | 02 | [Catalog that survives a restart](phase-02-catalog-that-survives-a-restart.md) | 🟢 Completed | 2026-08-08 |
 | 03 | [Sources and seeded defects](phase-03-sources-and-seeded-defects.md) | 🟢 Completed | 2026-08-08 |
-| 04 | [Model spec, loader, generated DDL](phase-04-model-spec-and-generated-ddl.md) | 🟡 In progress | 2026-08-08 |
+| 04 | [Model spec, loader, generated DDL](phase-04-model-spec-and-generated-ddl.md) | 🟢 Completed | 2026-08-09 |
 | 05 | [Bronze](phase-05-bronze.md) | 🟢 Completed | 2026-08-08 |
 | 06 | [Silver conformed entities](phase-06-silver-conformed-entities.md) | 🟢 Completed | 2026-08-08 |
 | 07 | [Silver SCD2 party](phase-07-silver-scd2-party.md) | 🟢 Completed | 2026-08-09 |
 | 08 | [Gold star schema](phase-08-gold-star-schema.md) | 🟢 Completed | 2026-08-09 |
-| 09 | [The demo](phase-09-the-demo.md) | 🔵 Not started | none |
+| 09 | [The demo](phase-09-the-demo.md) | 🟢 Completed | 2026-08-09 |
 
 Phase 02 comes before any data because the catalog choice changes what every
 later phase writes into, and because "cataloguing" is half of what this

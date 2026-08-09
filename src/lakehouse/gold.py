@@ -33,7 +33,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-from .catalog import conformance, ensure_table
+from .catalog import conformance, ensure_table, location
 from .spec import Spec, load_all
 
 UNKNOWN = "UNKNOWN"
@@ -60,8 +60,34 @@ def surrogate(spec: Spec, *extra: str):
 
 
 def build_dim_party(spark: SparkSession, spec: Spec) -> DataFrame:
-    """Every version, carrying its effective range through from silver."""
-    return spark.table("silver.party").select(
+    """Every version, carrying its effective range through from silver, plus a
+    member for transactions whose party cannot be resolved.
+
+    A null foreign key in a fact is a hole every consumer has to remember to
+    handle. A member is a hole the model handles once. These arise where a
+    party was deleted, closing its timeline per ADR 0007, while transactions on
+    its accounts continue.
+    """
+    unknown = spark.createDataFrame(
+        [(UNKNOWN,) * 8],
+        "party_id string, full_name string, address_line string, "
+        "suburb string, state string, postcode string, risk_rating string, segment string",
+    ).select(
+        F.sha2(F.lit(UNKNOWN), 256).alias("party_sk"),
+        "party_id",
+        "full_name",
+        "address_line",
+        "suburb",
+        "state",
+        "postcode",
+        "risk_rating",
+        "segment",
+        F.current_timestamp().alias("updated_at"),
+        F.lit("1900-01-01 00:00:00").cast("timestamp").alias("effective_from"),
+        F.lit("9999-12-31 23:59:59").cast("timestamp").alias("effective_to"),
+        F.lit(True).alias("is_current"),
+    )
+    real = spark.table("silver.party").select(
         surrogate(spec, "effective_from").alias("party_sk"),
         "party_id",
         "full_name",
@@ -76,6 +102,7 @@ def build_dim_party(spark: SparkSession, spec: Spec) -> DataFrame:
         "effective_to",
         "is_current",
     )
+    return real.unionByName(unknown)
 
 
 def build_dim_account(spark: SparkSession, spec: Spec) -> DataFrame:
@@ -203,7 +230,9 @@ def build_fact_transaction(spark: SparkSession, spec: Spec) -> DataFrame:
 
     return resolved.select(
         F.col("t.txn_id").alias("txn_id"),
-        F.col("p.party_sk").alias("party_sk"),
+        # A fact points at a member or it points at nothing. Nothing is not an
+        # option that survives contact with a consumer.
+        F.coalesce(F.col("p.party_sk"), F.sha2(F.lit(UNKNOWN), 256)).alias("party_sk"),
         F.col("a.account_sk").alias("account_sk"),
         F.col("c.merchant_category_sk").alias("merchant_category_sk"),
         F.date_format(F.col("t.txn_ts"), "yyyyMMdd").cast("int").alias("date_key"),
@@ -230,14 +259,25 @@ def build_fact_daily_balance(spark: SparkSession, spec: Spec) -> DataFrame:
     account = spark.table("gold.dim_account").select(
         "account_sk", "account_id", "open_date", "close_date"
     )
-    days = spark.table("gold.dim_date").select("date_key", "full_date")
+    lo, hi = spark.table("gold.dim_date").agg(F.min("full_date"), F.max("full_date")).first()
 
-    # Only days the account was actually open. Cross joining every account with
-    # every day would invent history for accounts that did not exist yet.
-    open_days = account.join(
-        days,
-        (F.col("full_date") >= F.coalesce(F.col("open_date"), F.lit("1900-01-01").cast("date")))
-        & (F.col("close_date").isNull() | (F.col("full_date") < F.col("close_date"))),
+    # Expand each account into its own open days with sequence(), rather than
+    # joining accounts to a date dimension on a range. A range condition is a
+    # non-equi join, which Spark executes as a nested loop: it OOM-killed the
+    # executors here (exit 137), and Spark recovering by re-running the stage
+    # made it look like a transient shuffle failure rather than a plan problem.
+    open_days = (
+        account.withColumn(
+            "_from", F.greatest(F.coalesce(F.col("open_date"), F.lit(lo)), F.lit(lo))
+        )
+        .withColumn(
+            "_to",
+            F.least(F.coalesce(F.date_sub(F.col("close_date"), 1), F.lit(hi)), F.lit(hi)),
+        )
+        .filter(F.col("_from") <= F.col("_to"))
+        .withColumn("full_date", F.explode(F.sequence("_from", "_to")))
+        .withColumn("date_key", F.date_format("full_date", "yyyyMMdd").cast("int"))
+        .select("account_sk", "account_id", "date_key")
     )
 
     movements = (
@@ -253,14 +293,19 @@ def build_fact_daily_balance(spark: SparkSession, spec: Spec) -> DataFrame:
         )
     )
 
+    # sum() of decimal(18,2) widens to decimal(28,2). MERGE cast that back
+    # implicitly; an overwrite does not, and fails with
+    # DELTA_FAILED_TO_MERGE_FIELDS naming the column twice and the types not at
+    # all. Cast every measure back to what the spec declares.
     zero = F.lit(0).cast("decimal(18,2)")
+    money = lambda column: F.coalesce(F.col(column), zero).cast("decimal(18,2)")  # noqa: E731
     daily = open_days.join(movements, on=["account_id", "date_key"], how="left").select(
         "account_sk",
         "account_id",
         "date_key",
-        F.coalesce(F.col("movement"), zero).alias("movement"),
-        F.coalesce(F.col("debit_amount"), zero).alias("debit_amount"),
-        F.coalesce(F.col("credit_amount"), zero).alias("credit_amount"),
+        money("movement").alias("movement"),
+        money("debit_amount").alias("debit_amount"),
+        money("credit_amount").alias("credit_amount"),
         F.coalesce(F.col("txn_count"), F.lit(0)).cast("int").alias("txn_count"),
     )
 
@@ -334,9 +379,9 @@ def build_fact_account_lifecycle(spark: SparkSession, spec: Spec) -> DataFrame:
                 "days_open"
             ),
             F.coalesce(F.col("txn_count"), F.lit(0)).cast("int").alias("txn_count"),
-            F.coalesce(F.col("lifetime_amount"), F.lit(0).cast("decimal(18,2)")).alias(
-                "lifetime_amount"
-            ),
+            F.coalesce(F.col("lifetime_amount"), F.lit(0).cast("decimal(18,2)"))
+            .cast("decimal(18,2)")
+            .alias("lifetime_amount"),
             F.col("status").alias("current_status"),
             F.current_timestamp().alias("updated_at"),
         )
@@ -352,6 +397,9 @@ BUILDERS = {
     "gold_fact_daily_balance": build_fact_daily_balance,
     "gold_fact_account_lifecycle": build_fact_account_lifecycle,
 }
+
+# Facts rebuilt wholesale from silver. See build().
+RECOMPUTED = ("gold_fact_transaction", "gold_fact_daily_balance")
 
 # Dimensions before the fact, because the fact resolves against them.
 ORDER = (
@@ -374,6 +422,21 @@ def build(spark: SparkSession, spec: Spec) -> int:
         )
 
     df = BUILDERS[spec.name](spark, spec)
+
+    # A fact that is fully recomputed from silver is an overwrite, not a merge.
+    # MERGE on a 288,000 row recompute means a join of the table against itself
+    # plus a not-matched-by-source scan, which is a large shuffle for no
+    # benefit: nothing is being preserved that the recompute does not produce.
+    # It also OOM-killed executors, and Spark retrying the stage disguised a
+    # plan problem as a transient shuffle failure.
+    #
+    # Dimensions still merge, because a surrogate key must survive a rebuild,
+    # and so does the accumulating snapshot, whose whole point is that a row is
+    # revisited rather than replaced.
+    if spec.name in RECOMPUTED:
+        df.write.format("delta").mode("overwrite").save(location(spec))
+        return spark.table(spec.table).count()
+
     parts = [f"t.{k} = s.{k}" for k in spec.business_key]
     if spec.history_type == "scd2":
         parts.append("t.effective_from = s.effective_from")

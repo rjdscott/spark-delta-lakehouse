@@ -2,9 +2,11 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party gold
+.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party gold demo demo-queries demo-reset
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
+include docker/.env
+export
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
@@ -77,6 +79,21 @@ party: ## Build the SCD2 party dimension through all three batches
 gold: ## Build the gold dimensions and facts
 	$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
 		--master spark://spark-master:7077 scripts/run_gold.py
+
+demo: ## Walk the whole lakehouse one batch at a time, narrating
+	$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
+		--master spark://spark-master:7077 scripts/demo.py
+
+demo-queries: ## Answer business questions against the star schema
+	$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
+		--master spark://spark-master:7077 scripts/demo_queries.py
+
+demo-reset: ## Drop every table and object so the demo runs from cold
+	$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
+		--master spark://spark-master:7077 scripts/reset.py
+	docker run --rm --network lakehouse_default --entrypoint sh $(MINIO_MC_IMAGE) -c \
+		"mc alias set l http://minio:9000 $(MINIO_ROOT_USER) $(MINIO_ROOT_PASSWORD) >/dev/null && \
+		 mc rm -r --force l/$(LAKEHOUSE_BUCKET)/bronze l/$(LAKEHOUSE_BUCKET)/silver l/$(LAKEHOUSE_BUCKET)/gold || true"
 
 stack-shell: ## Open a shell on the driver container
 	$(COMPOSE) exec app bash

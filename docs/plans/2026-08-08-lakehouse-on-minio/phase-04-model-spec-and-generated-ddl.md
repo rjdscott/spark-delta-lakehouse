@@ -17,7 +17,7 @@ reaches the catalog instead of staying in a YAML file nobody opens.
 - [x] `src/lakehouse/ddl.py`: CREATE TABLE with column comments, the grain as
       the table comment, and the model facts as table properties.
 - [x] Tests for every rejection rule plus the DDL contract.
-- [ ] Gold specs. Deferred to phase 08 on purpose, see the progress log.
+- [x] Gold specs, written in phase 08 once the fields were known.
 
 ## Verification
 
