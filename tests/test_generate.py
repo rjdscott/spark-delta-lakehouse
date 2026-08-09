@@ -129,14 +129,35 @@ def test_defect_7_parties_are_hard_deleted_between_batches(raw):
 
 def test_amount_sign_agrees_with_transaction_type(raw):
     """Without a sign convention, summing amount is meaningless and every
-    business example built on it is nonsense."""
+    business example built on it is nonsense.
+
+    OPENING is exempt and carries its own sign: a loan opens negative and a
+    deposit opens positive. It is a ledger position, not a purchase, which is
+    why it is a separate type rather than a DEBIT that spend analysis would
+    then have to remember to exclude.
+    """
     for batch in BATCH_DATES:
         for r in read(raw, batch, "transaction"):
             amount = float(r["amount"])
+            if r["txn_type"] == "OPENING":
+                continue
             if r["txn_type"] in ("DEBIT", "FEE"):
                 assert amount <= 0, f"{r['txn_id']} is a {r['txn_type']} of {amount}"
             else:
                 assert amount >= 0, f"{r['txn_id']} is a {r['txn_type']} of {amount}"
+
+
+def test_opening_balances_carry_the_sign_of_the_product(raw):
+    accounts = {r["account_id"]: r for r in read(raw, BATCH_DATES[0], "account")}
+    openings = [r for r in read(raw, BATCH_DATES[0], "transaction") if r["txn_type"] == "OPENING"]
+
+    assert openings, "no brought-forward balances"
+    for r in openings:
+        account = accounts.get(r["account_id"])
+        if account and account["product_type"] == "HOME_LOAN":
+            assert float(r["amount"]) < 0, f"{r['txn_id']} opens a home loan in credit"
+        elif account and account["product_type"] in ("SAVINGS", "TERM_DEPOSIT"):
+            assert float(r["amount"]) > 0, f"{r['txn_id']} opens a deposit in debit"
 
 
 def test_merchant_categories_fit_the_product(raw):

@@ -81,8 +81,104 @@ def main() -> int:
     print(f"late-settling facts : {late:,}")
     ok &= late > 0
 
+    ok &= check_daily_balance(spark)
+    ok &= check_lifecycle(spark)
+
     spark.stop()
     return 0 if ok else 1
+
+
+def check_daily_balance(spark) -> bool:
+    """A periodic snapshot: every open day present, balances carrying forward."""
+    from pyspark.sql.window import Window
+
+    bal = spark.table("gold.fact_daily_balance")
+    ok = True
+    print()
+
+    rows = bal.count()
+    keys = bal.select("account_id", "date_key").distinct().count()
+    print(
+        f"balance grain       : rows={rows:,} distinct account-days={keys:,} "
+        f"{'OK' if rows == keys else 'BROKEN'}"
+    )
+    ok &= rows == keys
+
+    # The rows for days with no transactions are the reason this grain exists.
+    quiet = bal.filter("txn_count = 0").count()
+    print(f"quiet days carried  : {quiet:,} of {rows:,}")
+    ok &= quiet > 0
+
+    # Continuity: yesterday's closing balance is today's opening balance.
+    day = Window.partitionBy("account_id").orderBy("date_key")
+    breaks = (
+        bal.withColumn("_prev_close", F.lag("closing_balance").over(day))
+        .filter(
+            F.col("_prev_close").isNotNull() & (F.col("_prev_close") != F.col("opening_balance"))
+        )
+        .count()
+    )
+    print(f"continuity breaks   : {breaks}")
+    ok &= breaks == 0
+
+    # The final closing balance must equal the sum of the account's movements.
+    last = bal.groupBy("account_id").agg(F.max("date_key").alias("date_key"))
+    final = bal.join(last, on=["account_id", "date_key"]).select("account_id", "closing_balance")
+    truth = bal.groupBy("account_id").agg(F.sum("movement").alias("total"))
+    mismatched = (
+        final.join(truth, on="account_id")
+        .filter(F.abs(F.col("closing_balance") - F.col("total")) > 0.01)
+        .count()
+    )
+    print(f"balance mismatches  : {mismatched}")
+    ok &= mismatched == 0
+
+    # No day may fall outside the account's life.
+    account = spark.table("gold.dim_account").select("account_id", "open_date", "close_date")
+    outside = (
+        bal.join(account, on="account_id")
+        .withColumn("_d", F.to_date(F.col("date_key").cast("string"), "yyyyMMdd"))
+        .filter(
+            (F.col("_d") < F.col("open_date"))
+            | (F.col("close_date").isNotNull() & (F.col("_d") >= F.col("close_date")))
+        )
+        .count()
+    )
+    print(f"days outside life   : {outside}")
+    ok &= outside == 0
+    return ok
+
+
+def check_lifecycle(spark) -> bool:
+    """An accumulating snapshot: one row per account, milestones in order."""
+    life = spark.table("gold.fact_account_lifecycle")
+    ok = True
+    print()
+
+    rows = life.count()
+    keys = life.select("account_id").distinct().count()
+    print(
+        f"lifecycle grain     : rows={rows:,} distinct accounts={keys:,} "
+        f"{'OK' if rows == keys else 'BROKEN'}"
+    )
+    ok &= rows == keys
+
+    out_of_order = life.filter(
+        (F.col("first_txn_date_key") < F.col("opened_date_key"))
+        | (F.col("last_txn_date_key") < F.col("first_txn_date_key"))
+        | (
+            F.col("closed_date_key").isNotNull()
+            & (F.col("last_txn_date_key") > F.col("closed_date_key"))
+        )
+    ).count()
+    print(f"milestones out of order: {out_of_order}")
+    ok &= out_of_order == 0
+
+    # Nulls here are milestones that have not happened, not missing data.
+    never = life.filter("first_txn_date_key IS NULL").count()
+    open_now = life.filter("closed_date_key IS NULL").count()
+    print(f"never transacted    : {never:,}   still open: {open_now:,}")
+    return ok
 
 
 if __name__ == "__main__":

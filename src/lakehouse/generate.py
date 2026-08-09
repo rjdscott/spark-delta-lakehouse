@@ -135,6 +135,8 @@ CATEGORY_AMOUNT = {
 # Sign convention. Without one, summing amount is meaningless and every
 # business example built on it is nonsense.
 NEGATIVE_TYPES = ("DEBIT", "FEE")
+# A brought-forward balance keeps its own sign: a loan opens negative and a
+# deposit opens positive, so OPENING is in neither list.
 
 FIRST_NAMES = ("Alice", "Bao", "Carlos", "Dana", "Eitan", "Fatima", "Grace", "Hiro", "Ines", "Jai")
 LAST_NAMES = ("Nguyen", "Smith", "Okafor", "Rossi", "Patel", "Kim", "Silva", "Muller", "Haddad")
@@ -283,7 +285,10 @@ class Generator:
             days=self.rng.choices((0, 1, 2, 5), weights=(70, 15, 10, 5))[0],
             seconds=self.rng.randint(0, 3600),
         )
-        signed = -abs(amount) if txn_type in NEGATIVE_TYPES else abs(amount)
+        if txn_type == "OPENING":
+            signed = amount
+        else:
+            signed = -abs(amount) if txn_type in NEGATIVE_TYPES else abs(amount)
         return {
             "txn_id": f"T{self._txn_seq:010d}",
             "account_id": account["account_id"],
@@ -353,7 +358,7 @@ class Generator:
                         self._txn(
                             account,
                             dt.datetime.combine(first, dt.time(0, 5)),
-                            "CREDIT" if carried >= 0 else "DEBIT",
+                            "OPENING",
                             "",
                             carried,
                         )

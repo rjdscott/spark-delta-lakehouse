@@ -1,0 +1,23 @@
+name: gold_fact_daily_balance
+layer: gold
+kind: fact
+grain: One row per account per calendar day the account was open, whether or not it transacted.
+source_spec: silver_transaction
+business_key: [account_id, date_key]
+history:
+  type: scd1
+  sequence_by: updated_at
+attributes:
+  - {name: account_sk,       type: string, tracked: false}
+  - {name: account_id,       type: string, tracked: false}
+  - {name: date_key,         type: int,    tracked: false}
+  - {name: opening_balance,  type: "decimal(18,2)", tracked: false, comment: "Closing balance of the previous day"}
+  - {name: movement,         type: "decimal(18,2)", tracked: false, comment: "Net of the day's transactions, zero on a quiet day"}
+  - {name: closing_balance,  type: "decimal(18,2)", tracked: false}
+  - {name: debit_amount,     type: "decimal(18,2)", tracked: false}
+  - {name: credit_amount,    type: "decimal(18,2)", tracked: false}
+  - {name: txn_count,        type: int,    tracked: false}
+  - {name: updated_at,       type: timestamp, tracked: false}
+relationships:
+  - {to: gold_dim_account, column: account_sk, kind: many_to_one}
+  - {to: gold_dim_date, column: date_key, kind: many_to_one}

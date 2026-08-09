@@ -47,4 +47,5 @@ line. Don't hand-edit.
 | [0006](0006-coherence-over-fidelity-in-synthetic-data.md) | Coherence over fidelity in synthetic data | Accepted |
 | [0007](0007-a-vanished-party-closes-its-timeline.md) | A vanished party closes its timeline | Accepted |
 | [0008](0008-the-first-version-of-a-dimension-starts-at-the-beginning-of-time.md) | The first version of a dimension starts at the beginning of time | Accepted |
+| [0009](0009-store-the-daily-balance-snapshot-rather-than-derive-it.md) | Store the daily balance snapshot rather than derive it | Accepted |
 <!-- index:end -->

@@ -16,7 +16,8 @@ surrogate keys and event-time resolution.
 - [x] `dim_date` generated across the range the facts need.
 - [x] `fact_transaction` resolved by as-of join on `txn_ts`.
 - [x] `scripts/verify_gold.py`.
-- [ ] `fact_daily_balance` and `fact_account_lifecycle`. Not built; see below.
+- [x] `fact_daily_balance`, a periodic snapshot including quiet days.
+- [x] `fact_account_lifecycle`, an accumulating snapshot updated in place.
 - [ ] Unknown-party member for the 294 residual null keys.
 
 ## Verification
@@ -77,6 +78,25 @@ Three things are deliberately unfinished rather than quietly missing:
   state, because silver holds every batch and therefore every account. They
   appear when the layers are advanced batch by batch, which is what a daily run
   does and what the demo in phase 09 should show.
-- **`fact_daily_balance` and `fact_account_lifecycle` are not built.** The
-  brief asks for three fact grains to demonstrate that grain is a choice.
-  One grain is built properly rather than three built badly.
+2026-08-09, later: both remaining grains built. `fact_daily_balance` at
+288,310 account-days with 229,785 of them quiet, zero continuity breaks, zero
+balance mismatches against the sum of movements, and no day outside an
+account's life. `fact_account_lifecycle` at 3,165 rows with milestones in
+order, 106 accounts that never transacted and 2,878 still open. ADR 0009
+records why the snapshot is stored rather than derived.
+
+The business queries found what the integrity checks could not. Every check
+passed while "spend by merchant category" reported 80 million dollars of
+Unknown spend across 3,001 transactions, an average of 27,000 each against
+440 for Health. The brought-forward balances and the loan repayments were
+typed as ordinary debits, so a balance carried into the window counted as a
+purchase. Two fixes: a brought-forward balance is now its own `OPENING` type
+carrying the sign of its product, and the category dimension distinguishes
+`UNKNOWN`, meaning the source did not say, from `NOT_APPLICABLE`, meaning a
+salary credit has no merchant. Unknown spend fell to 1.79 million across
+2,289 transactions, and the ranking is now legible.
+
+That is the third time in this build that a table passed every structural
+check while answering a business question wrongly. Grain, referential
+integrity and null counts do not detect a category error. Running a real query
+does.

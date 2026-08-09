@@ -31,11 +31,17 @@ import json
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.window import Window
 
 from .catalog import conformance, ensure_table
 from .spec import Spec, load_all
 
 UNKNOWN = "UNKNOWN"
+# Distinct from UNKNOWN on purpose. A salary credit has no merchant because
+# none applies; a debit with a blank category is a gap in the source. Collapsing
+# both into one member makes "spend by category" answer a question nobody asked.
+NOT_APPLICABLE = "NOT_APPLICABLE"
+MERCHANT_TYPES = ("DEBIT",)
 
 
 def surrogate(spec: Spec, *extra: str):
@@ -107,6 +113,17 @@ def build_dim_account(spark: SparkSession, spec: Spec) -> DataFrame:
     return real.unionByName(inferred)
 
 
+def category_code(category, txn_type):
+    """The category a transaction belongs to, including when it has none."""
+    blank = category.isNull() | (category == "")
+    return (
+        F.when(~blank, category)
+        .when(txn_type.isin(*MERCHANT_TYPES), F.lit(UNKNOWN))
+        .otherwise(F.lit(NOT_APPLICABLE))
+        .alias("merchant_category_code")
+    )
+
+
 def build_dim_merchant_category(spark: SparkSession, spec: Spec) -> DataFrame:
     """Includes a member for transactions carrying no category.
 
@@ -116,14 +133,7 @@ def build_dim_merchant_category(spark: SparkSession, spec: Spec) -> DataFrame:
     """
     codes = (
         spark.table("silver.transaction")
-        .select(
-            F.when(
-                F.col("merchant_category").isNull() | (F.col("merchant_category") == ""),
-                F.lit(UNKNOWN),
-            )
-            .otherwise(F.col("merchant_category"))
-            .alias("merchant_category_code")
-        )
+        .select(category_code(F.col("merchant_category"), F.col("txn_type")))
         .distinct()
     )
     return codes.select(
@@ -185,12 +195,7 @@ def build_fact_transaction(spark: SparkSession, spec: Spec) -> DataFrame:
         )
         .join(
             category.alias("c"),
-            F.coalesce(
-                F.when(F.col("t.merchant_category") == "", None).otherwise(
-                    F.col("t.merchant_category")
-                ),
-                F.lit(UNKNOWN),
-            )
+            category_code(F.col("t.merchant_category"), F.col("t.txn_type"))
             == F.col("c.merchant_category_code"),
             "left",
         )
@@ -211,12 +216,141 @@ def build_fact_transaction(spark: SparkSession, spec: Spec) -> DataFrame:
     )
 
 
+def build_fact_daily_balance(spark: SparkSession, spec: Spec) -> DataFrame:
+    """A periodic snapshot: one row per account per day, transacting or not.
+
+    The rows for quiet days are the entire point of this grain. A fact table
+    that only records movement cannot answer "what was the balance on the 14th"
+    without the consumer reconstructing a running total, which is the work this
+    table exists to do once instead of in every query.
+
+    Balances carry forward across quiet days, so the closing balance is a real
+    cumulative position rather than the day's movement.
+    """
+    account = spark.table("gold.dim_account").select(
+        "account_sk", "account_id", "open_date", "close_date"
+    )
+    days = spark.table("gold.dim_date").select("date_key", "full_date")
+
+    # Only days the account was actually open. Cross joining every account with
+    # every day would invent history for accounts that did not exist yet.
+    open_days = account.join(
+        days,
+        (F.col("full_date") >= F.coalesce(F.col("open_date"), F.lit("1900-01-01").cast("date")))
+        & (F.col("close_date").isNull() | (F.col("full_date") < F.col("close_date"))),
+    )
+
+    movements = (
+        spark.table("silver.transaction")
+        .groupBy("account_id", F.date_format("txn_ts", "yyyyMMdd").cast("int").alias("date_key"))
+        .agg(
+            F.sum("amount").alias("movement"),
+            F.sum(F.when(F.col("amount") < 0, F.col("amount")).otherwise(0)).alias("debit_amount"),
+            F.sum(F.when(F.col("amount") >= 0, F.col("amount")).otherwise(0)).alias(
+                "credit_amount"
+            ),
+            F.count("*").alias("txn_count"),
+        )
+    )
+
+    zero = F.lit(0).cast("decimal(18,2)")
+    daily = open_days.join(movements, on=["account_id", "date_key"], how="left").select(
+        "account_sk",
+        "account_id",
+        "date_key",
+        F.coalesce(F.col("movement"), zero).alias("movement"),
+        F.coalesce(F.col("debit_amount"), zero).alias("debit_amount"),
+        F.coalesce(F.col("credit_amount"), zero).alias("credit_amount"),
+        F.coalesce(F.col("txn_count"), F.lit(0)).cast("int").alias("txn_count"),
+    )
+
+    running = (
+        Window.partitionBy("account_id")
+        .orderBy("date_key")
+        .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+    )
+    return (
+        daily.withColumn("closing_balance", F.sum("movement").over(running).cast("decimal(18,2)"))
+        .withColumn(
+            "opening_balance",
+            (F.col("closing_balance") - F.col("movement")).cast("decimal(18,2)"),
+        )
+        .withColumn("updated_at", F.current_timestamp())
+        .select(
+            "account_sk",
+            "account_id",
+            "date_key",
+            "opening_balance",
+            "movement",
+            "closing_balance",
+            "debit_amount",
+            "credit_amount",
+            "txn_count",
+            "updated_at",
+        )
+    )
+
+
+def build_fact_account_lifecycle(spark: SparkSession, spec: Spec) -> DataFrame:
+    """An accumulating snapshot: one row per account, milestones filled in place.
+
+    Unlike the other two grains, a row here is revisited. The row is created
+    when the account opens and the same row is updated when it first transacts,
+    when it last transacts, and when it closes. Nulls are not missing data,
+    they are milestones that have not happened yet.
+    """
+    account = spark.table("gold.dim_account").filter(~F.col("is_inferred"))
+    activity = (
+        spark.table("silver.transaction")
+        .groupBy("account_id")
+        .agg(
+            F.min(F.to_date("txn_ts")).alias("first_txn"),
+            F.max(F.to_date("txn_ts")).alias("last_txn"),
+            F.count("*").cast("int").alias("txn_count"),
+            F.sum("amount").alias("lifetime_amount"),
+        )
+    )
+
+    key = F.date_format(F.col("_d"), "yyyyMMdd").cast("int")
+    joined = account.join(activity, on="account_id", how="left")
+    return (
+        joined.withColumn("_d", F.col("open_date"))
+        .withColumn("opened_date_key", key)
+        .withColumn("_d", F.col("first_txn"))
+        .withColumn("first_txn_date_key", key)
+        .withColumn("_d", F.col("last_txn"))
+        .withColumn("last_txn_date_key", key)
+        .withColumn("_d", F.col("close_date"))
+        .withColumn("closed_date_key", key)
+        .select(
+            "account_sk",
+            "account_id",
+            "opened_date_key",
+            "first_txn_date_key",
+            "last_txn_date_key",
+            "closed_date_key",
+            F.datediff(F.col("first_txn"), F.col("open_date")).alias("days_to_first_txn"),
+            F.datediff(F.coalesce(F.col("close_date"), F.current_date()), F.col("open_date")).alias(
+                "days_open"
+            ),
+            F.coalesce(F.col("txn_count"), F.lit(0)).cast("int").alias("txn_count"),
+            F.coalesce(F.col("lifetime_amount"), F.lit(0).cast("decimal(18,2)")).alias(
+                "lifetime_amount"
+            ),
+            F.col("status").alias("current_status"),
+            F.current_timestamp().alias("updated_at"),
+        )
+    )
+
+
 BUILDERS = {
     "gold_dim_party": build_dim_party,
     "gold_dim_account": build_dim_account,
     "gold_dim_merchant_category": build_dim_merchant_category,
     "gold_dim_date": build_dim_date,
     "gold_fact_transaction": build_fact_transaction,
+    "gold_fact_daily_balance": build_fact_daily_balance,
+    "gold_fact_account_lifecycle": build_fact_account_lifecycle,
 }
 
 # Dimensions before the fact, because the fact resolves against them.
@@ -226,6 +360,8 @@ ORDER = (
     "gold_dim_merchant_category",
     "gold_dim_date",
     "gold_fact_transaction",
+    "gold_fact_daily_balance",
+    "gold_fact_account_lifecycle",
 )
 
 
@@ -238,10 +374,10 @@ def build(spark: SparkSession, spec: Spec) -> int:
         )
 
     df = BUILDERS[spec.name](spark, spec)
-    key = spec.business_key[0]
-    match = f"t.{key} = s.{key}"
+    parts = [f"t.{k} = s.{k}" for k in spec.business_key]
     if spec.history_type == "scd2":
-        match += " AND t.effective_from = s.effective_from"
+        parts.append("t.effective_from = s.effective_from")
+    match = " AND ".join(parts)
 
     target = DeltaTable.forName(spark, spec.table)
     (
