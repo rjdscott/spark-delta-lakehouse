@@ -169,9 +169,40 @@ strings are quoted exactly, because they are what you will search for.
   `make stack-up` rebuilds, then recreate `app`, `spark-worker-1` and
   `spark-worker-2` so driver and executors agree.
 
+- **A mounted directory reads as empty inside a container, while the host
+  shows files and the smoke test stays green.** Incident 2026-08-09: after a
+  squash-merge branch dance (`git checkout main && git pull`), directories
+  that did not exist on the old branch were deleted and recreated, and the
+  running containers kept bind mounts to the dead inodes. `model/` read as
+  empty, `load_all()` returned zero specs, and `make stack-smoke` stayed
+  green because it does not read specs. Fix:
+  `docker compose up -d --force-recreate app spark-worker-1 spark-worker-2`
+  after any branch operation that deletes and recreates mounted directories.
+
+- **Credentials changed in `docker/.env` but the metastore still fails S3
+  auth while reporting healthy.** Its healthcheck is TCP-only. The metastore
+  reads `docker/hive/core-site.xml`, which is generated from the `.template`
+  by `make stack-up`; re-run it after a credential change and recreate
+  `hive-metastore`. Never edit the generated file.
+
 - **A script copied with `docker compose cp` disappears.** Recreating a
   container resets its filesystem. Put scripts in `scripts/`, which is mounted
   into the driver at `/opt/lakehouse/scripts`.
+
+## Verifying the pipeline
+
+The integrity evidence lives in four scripts, run through the driver:
+
+```bash
+docker compose -f docker/compose.yaml --env-file docker/.env exec -T app \
+  /opt/spark/bin/spark-submit --master spark://spark-master:7077 scripts/verify_bronze.py
+```
+
+Same invocation for `verify_silver.py`, `verify_scd2.py` (SCD2 integrity:
+overlaps, gaps, inverted ranges, current-per-key), `verify_gold.py` (grain,
+orphan keys, balance continuity, milestone ordering) and `demo_queries.py`
+(business questions by name). `make test-spark` runs the transformation unit
+tests inside the container, where pyspark lives.
 
 ## Last verified
 

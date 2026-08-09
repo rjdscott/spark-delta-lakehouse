@@ -18,4 +18,5 @@ attributes:
   - {name: postcode,     type: string, tracked: true}
   - {name: risk_rating,  type: string, tracked: true, nullable: true}
   - {name: segment,      type: string, tracked: true}
+  - {name: is_placeholder, type: boolean, tracked: false, comment: "Synthetic member for facts whose party cannot be resolved; never a real customer"}
   - {name: updated_at,   type: timestamp, tracked: false}

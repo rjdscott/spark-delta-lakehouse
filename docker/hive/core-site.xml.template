@@ -1,5 +1,10 @@
 <?xml version="1.0"?>
 <!--
+  TEMPLATE: docker/hive/core-site.xml is GENERATED from this file by
+  `make stack-up`, substituting the credentials from docker/.env, so there is
+  one credential source instead of three drifting copies (review-06 M-10).
+  Edit this template, never the generated file.
+
   Hadoop's Configuration reads XML from the classpath. It does NOT read JVM
   system properties, so passing -Dfs.s3a.endpoint through SERVICE_OPTS looks
   right and does nothing: the metastore fails with "Failed to create external
@@ -10,8 +15,8 @@
   <property><name>fs.s3a.endpoint</name><value>http://minio:9000</value></property>
   <property><name>fs.s3a.path.style.access</name><value>true</value></property>
   <property><name>fs.s3a.connection.ssl.enabled</name><value>false</value></property>
-  <property><name>fs.s3a.access.key</name><value>lakehouse</value></property>
-  <property><name>fs.s3a.secret.key</name><value>lakehouse123</value></property>
+  <property><name>fs.s3a.access.key</name><value>@MINIO_ROOT_USER@</value></property>
+  <property><name>fs.s3a.secret.key</name><value>@MINIO_ROOT_PASSWORD@</value></property>
   <property>
     <name>fs.s3a.aws.credentials.provider</name>
     <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider</value>

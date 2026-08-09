@@ -1,6 +1,6 @@
 # 0004. Spark session catalog until Unity Catalog can vend for MinIO
 
-- **Status:** Accepted
+- **Status:** Superseded by [0005](0005-hive-metastore-as-the-working-catalog.md)
 - **Date:** 2026-08-08
 
 ## Context

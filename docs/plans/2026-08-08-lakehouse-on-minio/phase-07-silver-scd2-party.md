@@ -84,3 +84,25 @@ Three failures worth keeping:
 - SQL comment escaping. Doubling a quote is ANSI but Spark's parser rejected
   `version''s validity`; backslash escaping is what it expects. Every column
   comment about a version's validity hit it.
+
+2026-08-09: Correction, from review-06 C-01. The convergence proof above is
+order-lucky. Replay order 3,1,2 ends on batch 2, whose close_vanished
+re-closes the deleted parties; any order ending in batch 1 resurrects all 25
+(reproduced: current 1,975 to 2,000). Deletion state does not survive a
+timeline rebuild, because the rebuild reads attributes only. Convergence
+holds for attribute versions and fails for closures until review-06 C-01
+lands. The fingerprint comparison stands as a test of the former, not the
+latter.
+
+2026-08-09, later: C-01 landed. Deletion is now derived from the full
+snapshot stream in bronze on every build and re-applied after every rebuild
+(ADR 0010, superseding 0007's mechanism). Convergence re-proven in the order
+that caught the defect: in-order 1,2,3 and killer-order 2,3,1 produce
+identical fingerprints (5195305383334, 2,424 rows, 1,975 current), and the
+direct repro, replaying batch 1 on top, now re-closes all 25 in the same run.
+Eleven transformation unit tests run in the container via `make test-spark`,
+including the empty-extract guard from M-02 and the trailing-absence
+semantics; the host suite skips them by design, since the host carries no
+pyspark. The fingerprint differs from the one recorded above because ADR
+0008's sentinel landed between the two measurements; the comparison that
+matters is within-run, in-order versus out-of-order, and those are equal.
