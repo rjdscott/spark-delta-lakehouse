@@ -84,3 +84,12 @@ Three failures worth keeping:
 - SQL comment escaping. Doubling a quote is ANSI but Spark's parser rejected
   `version''s validity`; backslash escaping is what it expects. Every column
   comment about a version's validity hit it.
+
+2026-08-09: Correction, from review-06 C-01. The convergence proof above is
+order-lucky. Replay order 3,1,2 ends on batch 2, whose close_vanished
+re-closes the deleted parties; any order ending in batch 1 resurrects all 25
+(reproduced: current 1,975 to 2,000). Deletion state does not survive a
+timeline rebuild, because the rebuild reads attributes only. Convergence
+holds for attribute versions and fails for closures until review-06 C-01
+lands. The fingerprint comparison stands as a test of the former, not the
+latter.
