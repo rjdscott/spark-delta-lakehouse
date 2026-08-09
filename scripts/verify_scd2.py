@@ -27,9 +27,11 @@ def main() -> int:
     overlaps = ranged.filter(F.col("_next").isNotNull() & (F.col("effective_to") > F.col("_next")))
     gaps = ranged.filter(F.col("_next").isNotNull() & (F.col("effective_to") < F.col("_next")))
     overlap_count, gap_count = overlaps.count(), gaps.count()
+    inverted = party.filter(F.col("effective_to") < F.col("effective_from")).count()
     print(f"overlapping ranges  : {overlap_count}")
     print(f"timeline gaps       : {gap_count}")
-    ok &= overlap_count == 0 and gap_count == 0
+    print(f"inverted ranges     : {inverted}")
+    ok &= overlap_count == 0 and gap_count == 0 and inverted == 0
 
     per_key = party.groupBy("party_id").agg(F.sum(F.col("is_current").cast("int")).alias("c"))
     many = per_key.filter(F.col("c") > 1).count()

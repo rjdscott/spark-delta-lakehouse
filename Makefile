@@ -36,7 +36,13 @@ test: ## Run tests
 generate: ## Generate the seeded source CSVs into data/raw
 	$(UV) run python -m lakehouse.generate --out data/raw
 
-stack-up: ## Build and start the lakehouse stack
+# Generated from the template so credentials have one source: docker/.env.
+docker/hive/core-site.xml: docker/hive/core-site.xml.template docker/.env
+	sed -e 's|@MINIO_ROOT_USER@|$(MINIO_ROOT_USER)|' \
+	    -e 's|@MINIO_ROOT_PASSWORD@|$(MINIO_ROOT_PASSWORD)|' \
+	    $< > $@
+
+stack-up: docker/hive/core-site.xml ## Build and start the lakehouse stack
 	$(COMPOSE) up -d --build
 	@echo "MinIO console http://localhost:9001 | Spark master http://localhost:8090 | Unity Catalog http://localhost:8080"
 
@@ -58,9 +64,9 @@ stack-smoke: ## Prove cluster + catalog + MinIO + Delta end to end
 
 seed: ## Upload the generated CSVs to the MinIO landing zone
 	docker run --rm --network lakehouse_default -v $(PWD)/data/raw:/raw:ro \
-		--entrypoint sh minio/mc:RELEASE.2024-11-21T17-21-54Z -c \
-		"mc alias set l http://minio:9000 lakehouse lakehouse123 >/dev/null && \
-		 mc mirror --overwrite /raw l/lakehouse/landing && mc ls -r l/lakehouse/landing | head -3"
+		--entrypoint sh $(MINIO_MC_IMAGE) -c \
+		"mc alias set l http://minio:9000 $(MINIO_ROOT_USER) $(MINIO_ROOT_PASSWORD) >/dev/null && \
+		 mc mirror --overwrite /raw l/$(LAKEHOUSE_BUCKET)/landing && mc ls -r l/$(LAKEHOUSE_BUCKET)/landing | head -3"
 
 bronze: ## Load all three batches into bronze on the cluster
 	@for b in 2026-01-15 2026-02-15 2026-03-15; do \

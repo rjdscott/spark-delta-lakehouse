@@ -11,9 +11,9 @@
       pipeline procedure it has never had.
       [`#h-03`](01-coverage-and-currency.md#h-03)
 - [x] **M-04** P0: track the version matrix. Fixed before the merge.
-- [ ] **M-05** P2: correct the stale expected output in phase 08.
+- [x] **M-05** P2: correct the stale expected output in phase 08.
 - [ ] **M-06** P3: document or accept the five bare make targets.
-- [ ] **L-07** P2: reference the verification scripts from the runbook.
+- [x] **L-07** P2: reference the verification scripts from the runbook.
 
 ## Carried, still open
 

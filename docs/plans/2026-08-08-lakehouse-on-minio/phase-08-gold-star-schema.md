@@ -33,6 +33,8 @@ Expected:
 ```
 fact grain          : rows=75,918 distinct txn_id=75,918 OK
 party_sk               orphan keys=     0  null keys=   294
+(294 fell to 0 when phase 09 added the unknown-party member; see the
+progress log and review-05 M-05)
 account_sk             orphan keys=     0  null keys=     0
 merchant_category_sk   orphan keys=     0  null keys=     0
 date_key               orphan keys=     0  null keys=     0

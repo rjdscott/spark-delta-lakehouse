@@ -207,7 +207,14 @@ def apply_deletions(spark: SparkSession, spec: Spec, source: Spec) -> int:
             .alias("t")
             .merge(deleted.alias("s"), f"t.{key} = s.{key}")
             .whenMatchedUpdate(
-                condition="t.is_current",
+                # The second clause refuses inverted ranges (review-06 M-12):
+                # a corrective re-extract can leave a stored version newer
+                # than the deletion evidence, and closing it would produce
+                # effective_to < effective_from. The contradiction then stays
+                # visible as an is_current key absent from the latest
+                # snapshot, which is the honest representation of a source
+                # that contradicted itself.
+                condition="t.is_current AND t.effective_from < s.deleted_ts",
                 set={
                     "effective_to": F.col("s.deleted_ts"),
                     "is_current": F.lit(False),

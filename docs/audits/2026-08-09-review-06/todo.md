@@ -23,16 +23,16 @@ demo / P2 soon / P3 nice.
 - [x] **M-06** P1: exclude `OPENING` from `debit_amount`, `credit_amount`,
   `txn_count` and the first/last-transaction milestones; keep it in
   `movement`. [`#m-06`](01-findings.md#m-06)
-- [ ] **M-07** P2: pin the UC server image to a digest or release tag.
+- [x] **M-07** P2: pin the UC server image to a digest or release tag.
   [`#m-07`](01-findings.md#m-07)
-- [ ] **M-08** P2: `make seed` uses the same variables as `demo-reset`.
-- [ ] **M-09** P2: derive `spark.sql.warehouse.dir` from `LAKEHOUSE_BUCKET`
+- [x] **M-08** P2: `make seed` uses the same variables as `demo-reset`.
+- [x] **M-09** P2: derive `spark.sql.warehouse.dir` from `LAKEHOUSE_BUCKET`
   at build time, or document the constraint in `.env`.
-- [ ] **M-10** P2: one credential source; document the Spark env-to-conf
+- [x] **M-10** P2: one credential source; document the Spark env-to-conf
   bridge in `spark-defaults.conf` so the working path is visible; consider a
   deeper healthcheck for the metastore.
-- [ ] **M-11** P2: prune the dead committer configuration or wire it.
-- [ ] **M-12** P2: `verify_scd2.py` asserts `effective_to >= effective_from`;
+- [x] **M-11** P2: prune the dead committer configuration or wire it.
+- [x] **M-12** P2: `verify_scd2.py` asserts `effective_to >= effective_from`;
   `close_vanished` stamps end-of-day rather than midnight.
 - [ ] **L-13** P3: replace `collect()`+`isin` with a join-based delete guard.
 - [ ] **L-14** P3: null-guard the SCD1 sequencing condition.
@@ -41,7 +41,7 @@ demo / P2 soon / P3 nice.
 - [ ] **L-16** P3: share the `BEGINNING` sentinel between `scd2.py` and
   `gold.py`.
 - [ ] **L-17** P3: healthcheck spark-master; gate `app` on it.
-- [ ] **L-18** P2: runbook failure mode: containers hold dead-inode mounts
+- [x] **L-18** P2: runbook failure mode: containers hold dead-inode mounts
   after a branch switch recreates mounted directories; symptom is an empty
   mount and green smoke tests; fix is `--force-recreate`.
 - [x] Append a correction to phase-07's progress log: the 3,1,2 fingerprint
