@@ -52,6 +52,7 @@ SPEC_KEYS = {
     "history",
     "attributes",
     "relationships",
+    "absence_means_deletion",
 }
 
 
@@ -90,6 +91,7 @@ class Spec:
     # every other layer reads another spec. One name for both meanings needs
     # a layer-dependent validation branch, and invites the next entity to
     # pick the wrong one.
+    absence_means_deletion: bool = False
     source_file: str | None = None
     source_spec: str | None = None
     relationships: tuple[Relationship, ...] = ()
@@ -166,6 +168,12 @@ def parse(raw: dict, origin: str) -> Spec:
         f"{origin}: sequence_by '{history['sequence_by']}' is not an attribute",
     )
 
+    if raw.get("absence_means_deletion"):
+        _require(
+            history["type"] == "scd2",
+            f"{origin}: absence_means_deletion needs scd2, there is nothing to close otherwise",
+        )
+
     if history["type"] == "scd2":
         _require(
             any(a.tracked for a in attributes),
@@ -186,6 +194,7 @@ def parse(raw: dict, origin: str) -> Spec:
         layer=raw["layer"],
         kind=raw["kind"],
         grain=grain,
+        absence_means_deletion=bool(raw.get("absence_means_deletion", False)),
         source_file=raw.get("source_file"),
         source_spec=raw.get("source_spec"),
         business_key=tuple(raw["business_key"]),

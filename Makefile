@@ -2,7 +2,7 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver
+.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
 
@@ -66,6 +66,12 @@ silver: ## Advance silver through all three batches, in order
 	@for b in 2026-01-15 2026-02-15 2026-03-15; do \
 		$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
 			--master spark://spark-master:7077 scripts/run_silver.py --batch $$b || exit 1; \
+	done
+
+party: ## Build the SCD2 party dimension through all three batches
+	@for b in 2026-01-15 2026-02-15 2026-03-15; do \
+		$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
+			--master spark://spark-master:7077 scripts/run_scd2.py --batch $$b || exit 1; \
 	done
 
 stack-shell: ## Open a shell on the driver container

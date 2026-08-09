@@ -43,7 +43,7 @@ Non-goals:
 | 04 | [Model spec, loader, generated DDL](phase-04-model-spec-and-generated-ddl.md) | 🟡 In progress | 2026-08-08 |
 | 05 | [Bronze](phase-05-bronze.md) | 🟢 Completed | 2026-08-08 |
 | 06 | [Silver conformed entities](phase-06-silver-conformed-entities.md) | 🟢 Completed | 2026-08-08 |
-| 07 | [Silver SCD2 party](phase-07-silver-scd2-party.md) | 🔵 Not started | none |
+| 07 | [Silver SCD2 party](phase-07-silver-scd2-party.md) | 🟢 Completed | 2026-08-09 |
 | 08 | [Gold star schema](phase-08-gold-star-schema.md) | 🔵 Not started | none |
 | 09 | [The demo](phase-09-the-demo.md) | 🔵 Not started | none |
 

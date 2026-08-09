@@ -37,6 +37,14 @@ bearing:
 | `account` | full snapshot per batch | same, and it keeps late-arriving records expressible |
 | `transaction` | incremental event stream | events are facts about a moment; they are not restated |
 
+## The defects are disjoint
+
+No party carries two defects. They overlapped once: the deleted set included
+the parties emitting the same-day change and the out-of-sequence record, whose
+extra rows bypass the snapshot filter, so those parties were deleted and still
+emitting versions and only 23 of 25 deletions actually happened. Each defect
+tested alone still passed. Defects that overlap stop testing what they claim.
+
 ## The seven
 
 ### 1. Exact duplicate rows, every source, every batch
@@ -111,7 +119,8 @@ transactions, and leaving the null propagates into every downstream count.
 
 ### 7. Parties hard deleted between batches
 
-Twenty-five parties present in batch 1 are absent from batch 2 onward.
+Twenty-five parties present in batch 1 are absent from batch 2 onward. They
+are chosen disjoint from the parties carrying defects 2 and 3.
 
 **Exercises:** what silver does about a business key that stops arriving. In a
 full snapshot the absence is information, and the answer is a real modelling

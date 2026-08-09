@@ -47,7 +47,14 @@ def columns(spec: Spec) -> list[tuple[str, str, str | None]]:
 
 
 def _escape(text: str) -> str:
-    return text.replace("'", "''")
+    """Escape for a Spark SQL string literal.
+
+    Backslash, not doubled quotes. Spark's parser escapes with a backslash by
+    default, and a doubled quote fails with PARSE_SYNTAX_ERROR on the first
+    comment containing an apostrophe, which is most sentences about a version's
+    validity.
+    """
+    return text.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def create_table(spec: Spec, location: str) -> str:

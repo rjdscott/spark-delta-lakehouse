@@ -4,6 +4,9 @@ kind: entity
 grain: One row per party per version of its tracked attributes, effective over a timestamp range.
 source_spec: bronze_party
 business_key: [party_id]
+# Party arrives as a full snapshot, so a party that stops appearing has been
+# deleted at the source. See ADR 0007.
+absence_means_deletion: true
 history:
   type: scd2
   sequence_by: updated_at

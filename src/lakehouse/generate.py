@@ -204,7 +204,12 @@ class Generator:
 
         account_ids = sorted(self.accounts)
         self.late_accounts = set(account_ids[-40:])
-        self.deleted_parties = set(sorted(self.parties)[:25])
+        # Disjoint from the parties carrying defects 2 and 3 (indices 7 and
+        # 11). Those emit extra rows outside the snapshot filter, so a party
+        # that is both deleted and specially-versioned ends up deleted while
+        # still emitting versions, and only 23 of the 25 actually vanish.
+        # Defects must not overlap or they stop testing what they claim to.
+        self.deleted_parties = set(sorted(self.parties)[100:125])
 
     # --- per batch mutation ---------------------------------------------
 

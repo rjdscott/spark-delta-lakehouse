@@ -45,4 +45,5 @@ line. Don't hand-edit.
 | [0004](0004-spark-session-catalog-until-unity-catalog-can-vend-for-minio.md) | Spark session catalog until Unity Catalog can vend for MinIO | Accepted |
 | [0005](0005-hive-metastore-as-the-working-catalog.md) | Hive Metastore as the working catalog | Accepted |
 | [0006](0006-coherence-over-fidelity-in-synthetic-data.md) | Coherence over fidelity in synthetic data | Accepted |
+| [0007](0007-a-vanished-party-closes-its-timeline.md) | A vanished party closes its timeline | Accepted |
 <!-- index:end -->

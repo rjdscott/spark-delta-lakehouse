@@ -124,3 +124,14 @@ def test_a_spec_must_declare_exactly_one_source(tmp_path):
 
     with pytest.raises(SpecError, match="exactly one of source_file and source_spec"):
         load_all(tmp_path)
+
+
+def test_ddl_escapes_apostrophes_in_comments():
+    """A comment about a version's validity is an ordinary sentence, and
+    doubled quotes fail Spark's parser."""
+    spec = load_all()["silver_party"]
+
+    statement = ddl.create_table(spec, "s3a://lakehouse/silver/party")
+
+    assert "version\\'s validity" in statement
+    assert "version''s" not in statement
