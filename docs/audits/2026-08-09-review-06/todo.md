@@ -12,15 +12,15 @@ demo / P2 soon / P3 nice.
 - [x] **M-02** P0: refuse to run `close_vanished` on an empty extract.
   `incoming.isEmpty()` check plus a collapse threshold; ADR 0007 already
   names the guard. [`#m-02`](01-findings.md#m-02)
-- [ ] **H-03** P1: give the unknown member a flag or exclude it from
+- [x] **H-03** P1: give the unknown member a flag or exclude it from
   `is_current` counts; `dim_account.is_inferred` is the precedent that keeps
   the spec guardrail satisfied. [`#h-03`](01-findings.md#h-03)
-- [ ] **H-04** P1: `conformance()` compares all four properties it fetches.
+- [x] **H-04** P1: `conformance()` compares all four properties it fetches.
   Three-line fix. [`#h-04`](01-findings.md#h-04)
-- [ ] **H-05** P1: ADR 0004's status line gains
+- [x] **H-05** P1: ADR 0004's status line gains
   `Superseded by [0005](../../adr/0005-hive-metastore-as-the-working-catalog.md)` for the read-path mechanism, the one edit
   an accepted ADR permits. [`#h-05`](01-findings.md#h-05)
-- [ ] **M-06** P1: exclude `OPENING` from `debit_amount`, `credit_amount`,
+- [x] **M-06** P1: exclude `OPENING` from `debit_amount`, `credit_amount`,
   `txn_count` and the first/last-transaction milestones; keep it in
   `movement`. [`#m-06`](01-findings.md#m-06)
 - [ ] **M-07** P2: pin the UC server image to a digest or release tag.

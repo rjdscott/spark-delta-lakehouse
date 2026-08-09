@@ -32,7 +32,7 @@ def snapshot(spark) -> None:
     accounts = spark.table("gold.dim_account")
     inferred = accounts.filter("is_inferred").count()
     party_versions = spark.table("gold.dim_party").count()
-    current = spark.table("gold.dim_party").filter("is_current").count()
+    current = spark.table("gold.dim_party").filter("is_current AND NOT is_placeholder").count()
     facts = spark.table("gold.fact_transaction").count()
 
     print(

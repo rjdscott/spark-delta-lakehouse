@@ -82,6 +82,7 @@ def build_dim_party(spark: SparkSession, spec: Spec) -> DataFrame:
         "postcode",
         "risk_rating",
         "segment",
+        F.lit(True).alias("is_placeholder"),
         F.current_timestamp().alias("updated_at"),
         F.lit("1900-01-01 00:00:00").cast("timestamp").alias("effective_from"),
         F.lit("9999-12-31 23:59:59").cast("timestamp").alias("effective_to"),
@@ -97,6 +98,7 @@ def build_dim_party(spark: SparkSession, spec: Spec) -> DataFrame:
         "postcode",
         "risk_rating",
         "segment",
+        F.lit(False).alias("is_placeholder"),
         "updated_at",
         "effective_from",
         "effective_to",
@@ -284,12 +286,22 @@ def build_fact_daily_balance(spark: SparkSession, spec: Spec) -> DataFrame:
         spark.table("silver.transaction")
         .groupBy("account_id", F.date_format("txn_ts", "yyyyMMdd").cast("int").alias("date_key"))
         .agg(
+            # The OPENING carry belongs in movement, because the running
+            # balance must start from it, and in nothing else: it is a ledger
+            # position, not activity. Before this filter a home loan's first
+            # "debit" was its entire principal (review-06 M-06).
             F.sum("amount").alias("movement"),
-            F.sum(F.when(F.col("amount") < 0, F.col("amount")).otherwise(0)).alias("debit_amount"),
-            F.sum(F.when(F.col("amount") >= 0, F.col("amount")).otherwise(0)).alias(
-                "credit_amount"
-            ),
-            F.count("*").alias("txn_count"),
+            F.sum(
+                F.when(
+                    (F.col("amount") < 0) & (F.col("txn_type") != "OPENING"), F.col("amount")
+                ).otherwise(0)
+            ).alias("debit_amount"),
+            F.sum(
+                F.when(
+                    (F.col("amount") >= 0) & (F.col("txn_type") != "OPENING"), F.col("amount")
+                ).otherwise(0)
+            ).alias("credit_amount"),
+            F.count(F.when(F.col("txn_type") != "OPENING", 1)).alias("txn_count"),
         )
     )
 
@@ -345,13 +357,18 @@ def build_fact_account_lifecycle(spark: SparkSession, spec: Spec) -> DataFrame:
     they are milestones that have not happened yet.
     """
     account = spark.table("gold.dim_account").filter(~F.col("is_inferred"))
+    # Milestones measure activity, and the OPENING carry is not activity:
+    # before this filter every account's first "transaction" was the window's
+    # first day (review-06 M-06). lifetime_amount keeps the carry on purpose,
+    # because it is a position, not a rate.
+    real = F.col("txn_type") != "OPENING"
     activity = (
         spark.table("silver.transaction")
         .groupBy("account_id")
         .agg(
-            F.min(F.to_date("txn_ts")).alias("first_txn"),
-            F.max(F.to_date("txn_ts")).alias("last_txn"),
-            F.count("*").cast("int").alias("txn_count"),
+            F.min(F.when(real, F.to_date("txn_ts"))).alias("first_txn"),
+            F.max(F.when(real, F.to_date("txn_ts"))).alias("last_txn"),
+            F.count(F.when(real, 1)).cast("int").alias("txn_count"),
             F.sum("amount").alias("lifetime_amount"),
         )
     )

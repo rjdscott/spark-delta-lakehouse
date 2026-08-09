@@ -42,7 +42,7 @@ line. Don't hand-edit.
 | [0001](0001-tiered-docs-scaffold-with-machine-enforcement.md) | Tiered docs scaffold with machine enforcement | Accepted |
 | [0002](0002-branch-rules-stay-honour-code.md) | Branch rules stay honour code | Accepted |
 | [0003](0003-version-matrix-for-the-local-lakehouse-stack.md) | Version matrix for the local lakehouse stack | Accepted |
-| [0004](0004-spark-session-catalog-until-unity-catalog-can-vend-for-minio.md) | Spark session catalog until Unity Catalog can vend for MinIO | Accepted |
+| [0004](0004-spark-session-catalog-until-unity-catalog-can-vend-for-minio.md) | Spark session catalog until Unity Catalog can vend for MinIO | Superseded by [0005](0005-hive-metastore-as-the-working-catalog.md) |
 | [0005](0005-hive-metastore-as-the-working-catalog.md) | Hive Metastore as the working catalog | Accepted |
 | [0006](0006-coherence-over-fidelity-in-synthetic-data.md) | Coherence over fidelity in synthetic data | Accepted |
 | [0007](0007-a-vanished-party-closes-its-timeline.md) | A vanished party closes its timeline | Superseded by [0010](0010-deletion-derives-from-the-snapshot-stream.md) |

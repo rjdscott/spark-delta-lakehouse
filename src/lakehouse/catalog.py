@@ -73,8 +73,21 @@ def conformance(spark: SparkSession, spec: Spec) -> list[str]:
     properties = dict(
         spark.sql(f"SHOW TBLPROPERTIES {spec.table}").rdd.map(lambda r: (r[0], r[1])).collect()
     )
-    if properties.get("lakehouse.grain") != spec.grain:
-        problems.append(f"{spec.table}: grain in the table does not match the spec")
+    # Every property ddl.py writes, not a subset. Review-06 H-04: checking one
+    # of four left business_key, history_type and sequence_by free to drift,
+    # which was the exact hole review-03 H-03 was raised to close.
+    declared = {
+        "lakehouse.grain": spec.grain,
+        "lakehouse.business_key": ",".join(spec.business_key),
+        "lakehouse.history_type": spec.history_type,
+        "lakehouse.sequence_by": spec.sequence_by,
+    }
+    for name, expected in declared.items():
+        if properties.get(name) != expected:
+            problems.append(
+                f"{spec.table}: property {name} is "
+                f"{properties.get(name)!r}, spec declares {expected!r}"
+            )
 
     return problems
 
