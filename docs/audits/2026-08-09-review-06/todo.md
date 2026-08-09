@@ -3,13 +3,13 @@
 Severity `<C|H|M|L>-NN`, priority P0 data-correctness / P1 before the next
 demo / P2 soon / P3 nice.
 
-- [ ] **C-01** P0: make deletion survive a rebuild. Deletion state must derive
+- [x] **C-01** P0: make deletion survive a rebuild. Deletion state must derive
   from the full set of snapshots seen (bronze holds them all), not from the
   batch being processed, so replay converges in any order. This changes ADR
   0007's mechanism: supersede it, don't patch around it. Then extend the
   convergence test to an order ending in batch 1, which is the order that
   catches it. [`01-findings.md#c-01`](01-findings.md#c-01)
-- [ ] **M-02** P0: refuse to run `close_vanished` on an empty extract.
+- [x] **M-02** P0: refuse to run `close_vanished` on an empty extract.
   `incoming.isEmpty()` check plus a collapse threshold; ADR 0007 already
   names the guard. [`#m-02`](01-findings.md#m-02)
 - [ ] **H-03** P1: give the unknown member a flag or exclude it from
@@ -44,7 +44,7 @@ demo / P2 soon / P3 nice.
 - [ ] **L-18** P2: runbook failure mode: containers hold dead-inode mounts
   after a branch switch recreates mounted directories; symptom is an empty
   mount and green smoke tests; fix is `--force-recreate`.
-- [ ] Append a correction to phase-07's progress log: the 3,1,2 fingerprint
+- [x] Append a correction to phase-07's progress log: the 3,1,2 fingerprint
   test was order-lucky; convergence does not hold for orders ending in
   batch 1 until C-01 lands.
 

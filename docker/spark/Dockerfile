@@ -66,7 +66,10 @@ COPY pyproject.toml /tmp/pyproject.toml
 # but DeltaTable lives in the Python package. --no-deps because the package
 # depends on pyspark and would otherwise install a second copy that disagrees
 # with the one in the image.
-RUN pip install --no-cache-dir pyyaml \
+# pytest so the transformation unit tests run where pyspark actually lives;
+# the host and CI skip them by design (no second pyspark to disagree with
+# the image, per ADR 0003).
+RUN pip install --no-cache-dir pyyaml pytest \
  && pip install --no-cache-dir --no-deps "delta-spark==${DELTA_VERSION}"
 
 # Spark 4 materialises an artifacts/ directory relative to the working

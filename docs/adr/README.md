@@ -45,7 +45,8 @@ line. Don't hand-edit.
 | [0004](0004-spark-session-catalog-until-unity-catalog-can-vend-for-minio.md) | Spark session catalog until Unity Catalog can vend for MinIO | Accepted |
 | [0005](0005-hive-metastore-as-the-working-catalog.md) | Hive Metastore as the working catalog | Accepted |
 | [0006](0006-coherence-over-fidelity-in-synthetic-data.md) | Coherence over fidelity in synthetic data | Accepted |
-| [0007](0007-a-vanished-party-closes-its-timeline.md) | A vanished party closes its timeline | Accepted |
+| [0007](0007-a-vanished-party-closes-its-timeline.md) | A vanished party closes its timeline | Superseded by [0010](0010-deletion-derives-from-the-snapshot-stream.md) |
 | [0008](0008-the-first-version-of-a-dimension-starts-at-the-beginning-of-time.md) | The first version of a dimension starts at the beginning of time | Accepted |
 | [0009](0009-store-the-daily-balance-snapshot-rather-than-derive-it.md) | Store the daily balance snapshot rather than derive it | Accepted |
+| [0010](0010-deletion-derives-from-the-snapshot-stream.md) | Deletion derives from the snapshot stream, not from the batch in hand | Accepted |
 <!-- index:end -->

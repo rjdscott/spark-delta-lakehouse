@@ -2,7 +2,7 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party gold demo demo-queries demo-reset
+.PHONY: help setup check docs docs-check lint test test-spark generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party gold demo demo-queries demo-reset
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
 -include docker/.env
@@ -25,6 +25,10 @@ docs-check: ## Fail if an index table is stale or a docs rule is broken
 lint: ## Lint and format-check
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
+
+test-spark: ## Run the transformation unit tests inside the driver container
+	$(COMPOSE) exec -T app sh -c 'PYTHONPATH="/opt/lakehouse/src:/opt/spark/python:$$(ls /opt/spark/python/lib/py4j-*-src.zip)" \
+		python3 -m pytest tests/test_scd2.py -q -p no:cacheprovider'
 
 test: ## Run tests
 	$(UV) run pytest -q

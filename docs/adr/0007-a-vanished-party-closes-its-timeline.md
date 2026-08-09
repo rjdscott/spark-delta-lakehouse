@@ -1,6 +1,6 @@
 # 0007. A vanished party closes its timeline
 
-- **Status:** Accepted
+- **Status:** Superseded by [0010](0010-deletion-derives-from-the-snapshot-stream.md)
 - **Date:** 2026-08-09
 
 ## Context

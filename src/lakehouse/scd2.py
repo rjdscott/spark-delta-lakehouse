@@ -129,33 +129,87 @@ def rebuild_timeline(history: DataFrame, spec: Spec) -> DataFrame:
     )
 
 
-def close_vanished(spark: SparkSession, spec: Spec, present: DataFrame, batch_id: str) -> int:
-    """Close the current version of any key absent from a snapshot extract.
+def snapshot_deletions(bronze: DataFrame, key: str) -> DataFrame:
+    """The deleted keys, derived from every landed snapshot batch.
 
-    Only for entities that declare `absence_means_deletion`. In an incremental
-    extract a missing row means nothing, and closing on it would delete the
-    world. See ADR 0007.
+    Deletion is a trailing absence: a key missing from the latest landed
+    snapshot is deleted, dated at the first batch it failed to appear in. A
+    key absent mid-stream but present later was never deleted. See ADR 0010.
+
+    Derived, not stored, and that is the entire fix for review-06 C-01: the
+    old mechanism wrote the closure once and compared against a single batch,
+    so a timeline rebuild erased it and replaying batch 1 resurrected every
+    deleted party. This derivation reads only bronze, which holds every batch,
+    so it does not depend on which batch is being processed and re-applying it
+    after any rebuild converges in any replay order.
+
+    Returns (key, deleted_ts). Empty for a bronze with a single batch.
+    """
+    batches = sorted(r[0] for r in bronze.select("_batch_id").distinct().collect())
+    if len(batches) < 2:
+        return bronze.sparkSession.createDataFrame([], f"{key} string, deleted_ts timestamp")
+
+    latest = batches[-1]
+    # Each batch's successor, as a literal mapping. Three batches today; a
+    # join against a successor table would be the shape at scale.
+    successor = dict(zip(batches, batches[1:], strict=False))
+    successor_expr = F.col("last_seen")
+    for seen, next_batch in successor.items():
+        successor_expr = F.when(F.col("last_seen") == seen, F.lit(next_batch)).otherwise(
+            successor_expr
+        )
+
+    return (
+        bronze.groupBy(key)
+        .agg(F.max("_batch_id").alias("last_seen"))
+        .filter(F.col("last_seen") != latest)
+        .withColumn("deleted_ts", F.to_timestamp(successor_expr))
+        .select(key, "deleted_ts")
+    )
+
+
+def refuse_empty_snapshot(incoming: DataFrame, spec: Spec) -> None:
+    """An empty extract is a source failure, not a mass deletion.
+
+    Without this, review-06 M-02: a missing party file closed all 1,975
+    current parties with exit code 0 and every integrity check green. ADR
+    0007 named this guard; ADR 0010 makes it mandatory.
+    """
+    if spec.absence_means_deletion and incoming.limit(1).count() == 0:
+        raise RuntimeError(
+            f"{spec.table}: incoming snapshot is empty. Refusing to run, because "
+            "processing it would eventually read as the deletion of every key. "
+            "If the source genuinely has zero rows, that is a decision for a "
+            "human, not a batch job."
+        )
+
+
+def apply_deletions(spark: SparkSession, spec: Spec, source: Spec) -> int:
+    """Re-derive the deleted set and close whatever the rebuild left open.
+
+    Runs after every rebuild, unconditionally, which is what makes closures
+    idempotent: a key already closed matches nothing (the condition requires
+    is_current), a key resurrected by a replayed batch is re-closed here.
+
+    Returns the number of closures applied in this run.
     """
     if not spec.absence_means_deletion:
         return 0
 
-    target = DeltaTable.forName(spark, spec.table)
     key = spec.business_key[0]
-    gone = (
-        spark.table(spec.table)
-        .filter(F.col("is_current"))
-        .join(present.select(key).distinct(), on=key, how="left_anti")
-        .select(key)
-    )
-    count = gone.count()
+    deleted = snapshot_deletions(spark.table(source.table), key)
+
+    reopened = spark.table(spec.table).filter(F.col("is_current")).join(deleted, on=key, how="semi")
+    count = reopened.count()
     if count:
         (
-            target.alias("t")
-            .merge(gone.alias("s"), f"t.{key} = s.{key}")
+            DeltaTable.forName(spark, spec.table)
+            .alias("t")
+            .merge(deleted.alias("s"), f"t.{key} = s.{key}")
             .whenMatchedUpdate(
                 condition="t.is_current",
                 set={
-                    "effective_to": F.lit(f"{batch_id} 00:00:00").cast("timestamp"),
+                    "effective_to": F.col("s.deleted_ts"),
                     "is_current": F.lit(False),
                 },
             )
@@ -176,6 +230,7 @@ def build(spark: SparkSession, spec: Spec, batch_id: str) -> dict:
     incoming = _versions(
         coerce(spark.table(source.table).filter(F.col("_batch_id") == batch_id), spec), spec
     )
+    refuse_empty_snapshot(incoming, spec)
 
     key = spec.business_key[0]
     affected = incoming.select(key).distinct()
@@ -203,7 +258,7 @@ def build(spark: SparkSession, spec: Spec, batch_id: str) -> dict:
         .execute()
     )
 
-    closed = close_vanished(spark, spec, incoming, batch_id)
+    closed = apply_deletions(spark, spec, source)
     return {
         "rows": spark.table(spec.table).count(),
         "current": spark.table(spec.table).filter(F.col("is_current")).count(),
