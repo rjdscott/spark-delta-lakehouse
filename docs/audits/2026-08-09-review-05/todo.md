@@ -4,7 +4,7 @@
       session. `rebuild_timeline`, `deduplicate`, `coerce`, `surrogate` and the
       as-of join, with a handful of rows and no stack.
       [`01-coverage-and-currency.md#h-01`](01-coverage-and-currency.md#h-01)
-- [ ] **H-02** P0: rewrite the README. The brief wants the thesis in under 400
+- [x] **H-02** P0: rewrite the README. The brief wants the thesis in under 400
       words, how to run each phase, and an honest scope statement.
       [`#h-02`](01-coverage-and-currency.md#h-02)
 - [ ] **H-03** P0: bring the runbook up to the current stack, and add the
