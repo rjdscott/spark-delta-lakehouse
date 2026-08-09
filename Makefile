@@ -2,7 +2,7 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze
+.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
 
@@ -60,6 +60,12 @@ bronze: ## Load all three batches into bronze on the cluster
 	@for b in 2026-01-15 2026-02-15 2026-03-15; do \
 		$(COMPOSE) exec -T app /opt/spark/bin/spark-submit --master spark://spark-master:7077 \
 			scripts/run_bronze.py --batch $$b || exit 1; \
+	done
+
+silver: ## Advance silver through all three batches, in order
+	@for b in 2026-01-15 2026-02-15 2026-03-15; do \
+		$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
+			--master spark://spark-master:7077 scripts/run_silver.py --batch $$b || exit 1; \
 	done
 
 stack-shell: ## Open a shell on the driver container

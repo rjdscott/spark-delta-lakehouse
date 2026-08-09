@@ -62,7 +62,12 @@ COPY docker/spark/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
 # The driver container runs our code; the master and workers only need the
 # classpath. Installing here keeps one image rather than two.
 COPY pyproject.toml /tmp/pyproject.toml
-RUN pip install --no-cache-dir pyyaml
+# delta-spark ships the jars AND a Python module; the jars are baked in above,
+# but DeltaTable lives in the Python package. --no-deps because the package
+# depends on pyspark and would otherwise install a second copy that disagrees
+# with the one in the image.
+RUN pip install --no-cache-dir pyyaml \
+ && pip install --no-cache-dir --no-deps "delta-spark==${DELTA_VERSION}"
 
 # Spark 4 materialises an artifacts/ directory relative to the working
 # directory on session start. The image runs as the unprivileged spark user, so
