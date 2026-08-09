@@ -1,0 +1,21 @@
+name: gold_dim_party
+layer: gold
+kind: dimension
+grain: One row per party per version of its tracked attributes, effective over a timestamp range.
+source_spec: silver_party
+surrogate_key: hash
+business_key: [party_id]
+history:
+  type: scd2
+  sequence_by: updated_at
+attributes:
+  - {name: party_sk,     type: string, tracked: false, comment: "Hash of party_id and effective_from"}
+  - {name: party_id,     type: string, tracked: false}
+  - {name: full_name,    type: string, tracked: false}
+  - {name: address_line, type: string, tracked: true}
+  - {name: suburb,       type: string, tracked: true}
+  - {name: state,        type: string, tracked: true}
+  - {name: postcode,     type: string, tracked: true}
+  - {name: risk_rating,  type: string, tracked: true, nullable: true}
+  - {name: segment,      type: string, tracked: true}
+  - {name: updated_at,   type: timestamp, tracked: false}

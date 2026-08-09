@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!--
+  Hadoop's Configuration reads XML from the classpath. It does NOT read JVM
+  system properties, so passing -Dfs.s3a.endpoint through SERVICE_OPTS looks
+  right and does nothing: the metastore fails with "Failed to create external
+  path s3a://...". These settings must live in a file.
+-->
+<configuration>
+  <property><name>fs.s3a.impl</name><value>org.apache.hadoop.fs.s3a.S3AFileSystem</value></property>
+  <property><name>fs.s3a.endpoint</name><value>http://minio:9000</value></property>
+  <property><name>fs.s3a.path.style.access</name><value>true</value></property>
+  <property><name>fs.s3a.connection.ssl.enabled</name><value>false</value></property>
+  <property><name>fs.s3a.access.key</name><value>lakehouse</value></property>
+  <property><name>fs.s3a.secret.key</name><value>lakehouse123</value></property>
+  <property>
+    <name>fs.s3a.aws.credentials.provider</name>
+    <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider</value>
+  </property>
+</configuration>

@@ -1,0 +1,19 @@
+name: bronze_party
+layer: bronze
+kind: entity
+grain: One row per party record as it appeared in one source extract, including duplicates.
+source_file: party
+business_key: [party_id]
+history:
+  type: append
+  sequence_by: updated_at
+attributes:
+  - {name: party_id,     type: string, tracked: false}
+  - {name: full_name,    type: string, tracked: false}
+  - {name: address_line, type: string, tracked: false}
+  - {name: suburb,       type: string, tracked: false}
+  - {name: state,        type: string, tracked: false}
+  - {name: postcode,     type: string, tracked: false}
+  - {name: risk_rating,  type: string, tracked: false, nullable: true}
+  - {name: segment,      type: string, tracked: false}
+  - {name: updated_at,   type: string, tracked: false}

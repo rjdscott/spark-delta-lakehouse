@@ -1,0 +1,25 @@
+name: gold_fact_account_lifecycle
+layer: gold
+kind: fact
+grain: One row per account, carrying its milestone dates, updated in place as each milestone occurs.
+source_spec: silver_account
+business_key: [account_id]
+history:
+  type: scd1
+  sequence_by: updated_at
+attributes:
+  - {name: account_sk,           type: string, tracked: false}
+  - {name: account_id,           type: string, tracked: false}
+  - {name: opened_date_key,      type: int,    tracked: false}
+  - {name: first_txn_date_key,   type: int,    tracked: false, nullable: true, comment: "Null until the account transacts"}
+  - {name: last_txn_date_key,    type: int,    tracked: false, nullable: true}
+  - {name: closed_date_key,      type: int,    tracked: false, nullable: true, comment: "Null while the account is open"}
+  - {name: days_to_first_txn,    type: int,    tracked: false, nullable: true}
+  - {name: days_open,            type: int,    tracked: false, nullable: true}
+  - {name: txn_count,            type: int,    tracked: false}
+  - {name: lifetime_amount,      type: "decimal(18,2)", tracked: false}
+  - {name: current_status,       type: string, tracked: false}
+  - {name: updated_at,           type: timestamp, tracked: false}
+relationships:
+  - {to: gold_dim_account, column: account_sk, kind: many_to_one}
+  - {to: gold_dim_date, column: opened_date_key, kind: many_to_one}

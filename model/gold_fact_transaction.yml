@@ -1,0 +1,26 @@
+name: gold_fact_transaction
+layer: gold
+kind: fact
+grain: One row per transaction event, resolved to the dimension versions current at the moment it occurred.
+source_spec: silver_transaction
+business_key: [txn_id]
+history:
+  type: scd1
+  sequence_by: posted_ts
+attributes:
+  - {name: txn_id,               type: string, tracked: false}
+  - {name: party_sk,             type: string, tracked: false, comment: "Party version current at txn_ts, not at load time"}
+  - {name: account_sk,           type: string, tracked: false}
+  - {name: merchant_category_sk, type: string, tracked: false}
+  - {name: date_key,             type: int,    tracked: false, comment: "Date of txn_ts, the event, not posted_ts"}
+  - {name: txn_ts,               type: timestamp, tracked: false}
+  - {name: posted_ts,            type: timestamp, tracked: false}
+  - {name: settlement_lag_days,  type: int,    tracked: false}
+  - {name: amount,               type: "decimal(18,2)", tracked: false}
+  - {name: currency,             type: string, tracked: false}
+  - {name: txn_type,             type: string, tracked: false}
+relationships:
+  - {to: gold_dim_party, column: party_sk, kind: many_to_one}
+  - {to: gold_dim_account, column: account_sk, kind: many_to_one}
+  - {to: gold_dim_merchant_category, column: merchant_category_sk, kind: many_to_one}
+  - {to: gold_dim_date, column: date_key, kind: many_to_one}

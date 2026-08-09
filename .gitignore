@@ -149,6 +149,9 @@ activemq-data/
 
 # Environments
 .env
+# ...except the stack's version matrix, which is documentation the repo needs.
+# It carries local-only demo credentials and no secrets. See ADR 0003.
+!docker/.env
 .envrc
 .venv
 env/
@@ -219,3 +222,7 @@ __marimo__/
 
 # JetBrains IDE
 .idea/
+
+# Local lakehouse data
+warehouse*/
+data/raw/*.csv

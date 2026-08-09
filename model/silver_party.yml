@@ -1,0 +1,22 @@
+name: silver_party
+layer: silver
+kind: entity
+grain: One row per party per version of its tracked attributes, effective over a timestamp range.
+source_spec: bronze_party
+business_key: [party_id]
+# Party arrives as a full snapshot, so a party that stops appearing has been
+# deleted at the source. See ADR 0007.
+absence_means_deletion: true
+history:
+  type: scd2
+  sequence_by: updated_at
+attributes:
+  - {name: party_id,     type: string, tracked: false}
+  - {name: full_name,    type: string, tracked: false}
+  - {name: address_line, type: string, tracked: true}
+  - {name: suburb,       type: string, tracked: true}
+  - {name: state,        type: string, tracked: true}
+  - {name: postcode,     type: string, tracked: true}
+  - {name: risk_rating,  type: string, tracked: true,  nullable: true}
+  - {name: segment,      type: string, tracked: true}
+  - {name: updated_at,   type: timestamp, tracked: false}
