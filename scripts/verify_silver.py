@@ -17,9 +17,8 @@ def main() -> int:
     for table, key in (("silver.account", "account_id"), ("silver.transaction", "txn_id")):
         rows = spark.table(table).count()
         keys = spark.table(table).select(key).distinct().count()
-        print(
-            f"{table:20s} rows={rows:>7,}  distinct {key}={keys:>7,}  grain {'OK' if rows == keys else 'BROKEN'}"
-        )
+        grain = "OK" if rows == keys else "BROKEN"
+        print(f"{table:20s} rows={rows:>7,}  distinct {key}={keys:>7,}  grain {grain}")
         ok &= rows == keys
 
     bronze_keys = spark.table("bronze.account").select("account_id").distinct().count()
@@ -32,7 +31,8 @@ def main() -> int:
 
     types = dict(spark.table("silver.transaction").dtypes)
     print(
-        f"coercion: amount={types['amount']} txn_ts={types['txn_ts']} posted_ts={types['posted_ts']}"
+        f"coercion: amount={types['amount']} "
+        f"txn_ts={types['txn_ts']} posted_ts={types['posted_ts']}"
     )
     ok &= types["amount"].startswith("decimal") and types["txn_ts"] == "timestamp"
 
@@ -53,9 +53,8 @@ def main() -> int:
 
     # No dimensional resolution leaked into silver.
     leaked = [c for c in spark.table("silver.transaction").columns if c.endswith("_key")]
-    print(
-        f"surrogate keys in silver.transaction: {leaked or 'none'} {'OK' if not leaked else 'LEAKED'}"
-    )
+    verdict = "LEAKED" if leaked else "OK"
+    print(f"surrogate keys in silver.transaction: {leaked or 'none'} {verdict}")
     ok &= not leaked
 
     spark.stop()
