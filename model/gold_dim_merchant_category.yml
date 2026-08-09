@@ -1,0 +1,15 @@
+name: gold_dim_merchant_category
+layer: gold
+kind: dimension
+grain: One row per merchant category, including a member for transactions that carry none.
+source_spec: silver_transaction
+surrogate_key: hash
+business_key: [merchant_category_code]
+history:
+  type: scd1
+  sequence_by: updated_at
+attributes:
+  - {name: merchant_category_sk,   type: string, tracked: false}
+  - {name: merchant_category_code, type: string, tracked: false}
+  - {name: merchant_category_name, type: string, tracked: false}
+  - {name: updated_at,             type: timestamp, tracked: false}

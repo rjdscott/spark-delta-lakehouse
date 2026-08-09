@@ -1,0 +1,20 @@
+name: gold_dim_date
+layer: gold
+kind: dimension
+grain: One row per calendar day across the range the facts require.
+source_file: generated
+surrogate_key: hash
+business_key: [date_key]
+history:
+  type: scd1
+  sequence_by: updated_at
+attributes:
+  - {name: date_key,     type: int,    tracked: false, comment: "yyyymmdd"}
+  - {name: full_date,    type: date,   tracked: false}
+  - {name: day_of_month, type: int,    tracked: false}
+  - {name: month_number, type: int,    tracked: false}
+  - {name: month_name,   type: string, tracked: false}
+  - {name: quarter,      type: int,    tracked: false}
+  - {name: year_number,  type: int,    tracked: false}
+  - {name: is_weekend,   type: boolean, tracked: false}
+  - {name: updated_at,   type: timestamp, tracked: false}

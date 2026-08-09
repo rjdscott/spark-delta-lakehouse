@@ -50,6 +50,13 @@ from .spec import Spec, load_all
 # the range predicate a plain BETWEEN.
 FOREVER = "9999-12-31 23:59:59"
 
+# The earliest version of a key starts at the beginning of time, not when the
+# source first told us about it. We know when we first *saw* an attribute, not
+# when it *became* true, and a dimension whose first version starts at first
+# sighting cannot resolve any fact that predates the first extract, which is
+# most facts in a first load. See ADR 0008.
+BEGINNING = "1900-01-01 00:00:00"
+
 
 def _versions(df: DataFrame, spec: Spec) -> DataFrame:
     """Attribute columns plus the sequencing column, nothing else."""
@@ -102,8 +109,12 @@ def rebuild_timeline(history: DataFrame, spec: Spec) -> DataFrame:
 
     # Ranges are half open: [effective_from, effective_to). A transaction at
     # exactly the instant of a change belongs to the new version.
+    first = F.row_number().over(timeline) == 1
     return (
-        changed.withColumn("effective_from", F.col(spec.sequence_by))
+        changed.withColumn(
+            "effective_from",
+            F.when(first, F.lit(BEGINNING).cast("timestamp")).otherwise(F.col(spec.sequence_by)),
+        )
         .withColumn(
             "effective_to",
             F.coalesce(

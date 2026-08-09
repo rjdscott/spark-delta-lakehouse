@@ -53,6 +53,7 @@ SPEC_KEYS = {
     "attributes",
     "relationships",
     "absence_means_deletion",
+    "surrogate_key",
 }
 
 
@@ -91,6 +92,9 @@ class Spec:
     # every other layer reads another spec. One name for both meanings needs
     # a layer-dependent validation branch, and invites the next entity to
     # pick the wrong one.
+    # 'hash' or absent. The inputs are derivable rather than declared: the
+    # business key, plus effective_from when the entity keeps history.
+    surrogate_key: str | None = None
     absence_means_deletion: bool = False
     source_file: str | None = None
     source_spec: str | None = None
@@ -168,6 +172,13 @@ def parse(raw: dict, origin: str) -> Spec:
         f"{origin}: sequence_by '{history['sequence_by']}' is not an attribute",
     )
 
+    if raw.get("surrogate_key"):
+        _require(
+            raw["surrogate_key"] == "hash",
+            f"{origin}: surrogate_key must be 'hash'; identity columns are not stable "
+            "across environments or reprocessing",
+        )
+
     if raw.get("absence_means_deletion"):
         _require(
             history["type"] == "scd2",
@@ -194,6 +205,7 @@ def parse(raw: dict, origin: str) -> Spec:
         layer=raw["layer"],
         kind=raw["kind"],
         grain=grain,
+        surrogate_key=raw.get("surrogate_key"),
         absence_means_deletion=bool(raw.get("absence_means_deletion", False)),
         source_file=raw.get("source_file"),
         source_spec=raw.get("source_spec"),

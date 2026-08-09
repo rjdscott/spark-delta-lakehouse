@@ -2,7 +2,7 @@ PY ?= python3
 UV ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party
+.PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party gold
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
 
@@ -73,6 +73,10 @@ party: ## Build the SCD2 party dimension through all three batches
 		$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
 			--master spark://spark-master:7077 scripts/run_scd2.py --batch $$b || exit 1; \
 	done
+
+gold: ## Build the gold dimensions and facts
+	$(COMPOSE) exec -T app /opt/spark/bin/spark-submit \
+		--master spark://spark-master:7077 scripts/run_gold.py
 
 stack-shell: ## Open a shell on the driver container
 	$(COMPOSE) exec app bash

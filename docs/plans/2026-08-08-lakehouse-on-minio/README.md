@@ -44,7 +44,7 @@ Non-goals:
 | 05 | [Bronze](phase-05-bronze.md) | 🟢 Completed | 2026-08-08 |
 | 06 | [Silver conformed entities](phase-06-silver-conformed-entities.md) | 🟢 Completed | 2026-08-08 |
 | 07 | [Silver SCD2 party](phase-07-silver-scd2-party.md) | 🟢 Completed | 2026-08-09 |
-| 08 | [Gold star schema](phase-08-gold-star-schema.md) | 🔵 Not started | none |
+| 08 | [Gold star schema](phase-08-gold-star-schema.md) | 🟡 In progress | 2026-08-09 |
 | 09 | [The demo](phase-09-the-demo.md) | 🔵 Not started | none |
 
 Phase 02 comes before any data because the catalog choice changes what every

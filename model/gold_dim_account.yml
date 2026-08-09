@@ -1,0 +1,20 @@
+name: gold_dim_account
+layer: gold
+kind: dimension
+grain: One row per account, carrying its latest known state.
+source_spec: silver_account
+surrogate_key: hash
+business_key: [account_id]
+history:
+  type: scd1
+  sequence_by: updated_at
+attributes:
+  - {name: account_sk,   type: string, tracked: false, comment: "Hash of account_id"}
+  - {name: account_id,   type: string, tracked: false}
+  - {name: party_id,     type: string, tracked: false}
+  - {name: product_type, type: string, tracked: false}
+  - {name: open_date,    type: date,   tracked: false}
+  - {name: close_date,   type: date,   tracked: false, nullable: true}
+  - {name: status,       type: string, tracked: false}
+  - {name: is_inferred,  type: boolean, tracked: false, comment: "Created from a transaction before the account record arrived"}
+  - {name: updated_at,   type: timestamp, tracked: false}
