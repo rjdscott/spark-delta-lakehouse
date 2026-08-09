@@ -5,7 +5,7 @@ UV ?= uv
 .PHONY: help setup check docs docs-check lint test generate stack-up stack-down stack-destroy stack-ps stack-logs stack-smoke stack-shell seed bronze silver party gold demo demo-queries demo-reset
 
 COMPOSE = docker compose -f docker/compose.yaml --env-file docker/.env
-include docker/.env
+-include docker/.env
 export
 
 help: ## Show this help
