@@ -2,9 +2,11 @@
 
 ## When to use
 
-Starting, demonstrating, or debugging the Docker Compose lakehouse: MinIO,
-Unity Catalog on Postgres, and a Spark standalone cluster writing Delta tables
-to object storage.
+Starting, demonstrating, or debugging the Docker Compose lakehouse: MinIO for
+object storage, a Postgres-backed Hive Metastore as the working catalog, a
+Unity Catalog server (namespace only; see ADR 0005), and a Spark standalone
+cluster with two workers. Covers bringing the stack up, running the full
+pipeline, verifying it, and shutting down.
 
 ## Steps
 
@@ -18,62 +20,74 @@ to object storage.
    docker version --format 'server {{.Server.Version}}'
    ```
 
-2. Bring the stack up. First run builds the Spark image, which resolves the jar
-   matrix through Ivy and takes a few minutes. Later runs are cached:
+2. Bring the stack up. First run builds the Spark image, which resolves the
+   jar matrix through Ivy and takes a few minutes; it also generates
+   `docker/hive/core-site.xml` from its template using the credentials in
+   `docker/.env`. Later runs are cached:
 
    ```bash
    make stack-up
    make stack-ps
    ```
 
-   Expected: `catalog-db`, `minio` and `unitycatalog` healthy, `spark-master`,
-   `spark-worker-1`, `spark-worker-2` and `app` up, `minio-init` exited 0.
+   Expected, all eight services: `catalog-db`, `hive-db`, `hive-metastore`,
+   `minio` and `unitycatalog` healthy; `spark-master`, `spark-worker-1`,
+   `spark-worker-2` and `app` up; `minio-init` exited 0.
 
-3. Create the catalog and the medallion schemas in Unity Catalog. These are
-   metadata only; the tables themselves are written by Spark:
-
-   ```bash
-   UC=http://localhost:8080/api/2.1/unity-catalog
-   curl -s -X POST $UC/catalogs -H 'Content-Type: application/json' \
-     -d '{"name":"lakehouse","comment":"retail banking lakehouse"}'
-   for s in bronze silver gold; do
-     curl -s -X POST $UC/schemas -H 'Content-Type: application/json' \
-       -d "{\"name\":\"$s\",\"catalog_name\":\"lakehouse\"}"
-   done
-   curl -s "$UC/schemas?catalog_name=lakehouse"
-   ```
-
-4. Prove every seam end to end:
+3. Prove every seam before touching real data:
 
    ```bash
    make stack-smoke
    ```
 
-   Expected output:
+   Expected output ends with:
 
    ```
-   spark version        : 4.0.0
-   master               : spark://spark-master:7077
    rows via catalog     : 1000
    tables in bronze     : ['smoke']
    executors registered : 2
    ```
 
-   `executors registered : 2` is the line that matters. It confirms the job ran
-   on the workers rather than in the driver.
+   `executors registered : 2` is the line that matters: the job ran on the
+   workers, not in the driver. The table registration survives
+   `make stack-down && make stack-up`, because the metastore is Postgres.
 
-5. Confirm the bytes are really in object storage, not on a container's disk:
+4. Generate the source extracts and land them in the MinIO landing zone:
 
    ```bash
-   docker run --rm --network lakehouse_default --entrypoint sh \
-     minio/mc:RELEASE.2024-11-21T17-21-54Z -c \
-     "mc alias set l http://minio:9000 lakehouse lakehouse123 >/dev/null && \
-      mc ls -r l/lakehouse/bronze/smoke | head"
+   make generate   # seeded, deterministic; 7 planted defects (data/DEFECTS.md)
+   make seed
    ```
 
-   Expected: `_delta_log/00000000000000000000.json` and parquet parts.
+5. Run the pipeline, one batch at a time, narrated:
 
-6. The visual surfaces, for demonstrating:
+   ```bash
+   make demo
+   ```
+
+   Roughly ten minutes on a workstation. Watch for: 37 inferred members at
+   batch 1 reconciling to 0 at batch 2, 25 parties closed as deleted at
+   batch 2, and the closing block reporting how many facts resolved to a
+   non-current dimension version. To rerun from cold: `make demo-reset` first.
+   Individual layers: `make bronze`, `make silver`, `make party`, `make gold`.
+
+6. Verify. Unit and docs checks on the host, transformation tests in the
+   container, integrity checks against the live tables:
+
+   ```bash
+   make check
+   make test-spark
+   docker compose -f docker/compose.yaml --env-file docker/.env exec -T app \
+     /opt/spark/bin/spark-submit --master spark://spark-master:7077 scripts/verify_scd2.py
+   ```
+
+   Same invocation for `verify_bronze.py`, `verify_silver.py`,
+   `verify_gold.py` and `demo_queries.py`. Every count in `verify_scd2`
+   (overlaps, gaps, inverted ranges, keys with more than one current row)
+   must be zero; `keys with 0 current : 25` is the deleted parties and is
+   correct.
+
+7. The visual surfaces, for demonstrating:
 
    | URL | Shows |
    |-----|-------|
@@ -82,11 +96,17 @@ to object storage.
    | http://localhost:4040 | The job UI, only while a job is running |
    | http://localhost:8080 | Unity Catalog REST API |
 
-7. Shut down. `stack-down` keeps the data, `stack-destroy` does not:
+   Unity Catalog holds the `lakehouse.bronze/silver/gold` namespace but is
+   not on the read path; the pipeline's catalog is the Hive Metastore. Why,
+   with the three reproduced vending failures, is ADR 0004; the decision to
+   run on the metastore is ADR 0005.
+
+8. Shut down. `stack-down` keeps the data and the catalog, `stack-destroy`
+   deletes the volumes too:
 
    ```bash
    make stack-down
-   make stack-destroy   # also deletes the MinIO and Postgres volumes
+   make stack-destroy
    ```
 
 ## Failure modes
@@ -206,9 +226,10 @@ tests inside the container, where pyspark lives.
 
 ## Last verified
 
-- **Last verified:** 2026-08-08 against `lakehouse/spark:4.0.0`, Hive
-  Metastore 4.0.1, Unity Catalog 0.5.0, MinIO RELEASE.2025-09-07T16-13-09Z.
-  Steps 1 to 6 all executed; `make stack-smoke` returned 1000 rows on 2
-  executors with the Delta log present in MinIO. Catalog persistence was
-  verified by `make stack-down` followed by `make stack-up`: `bronze.smoke`
-  was still registered with its 1000 rows.
+- **Last verified:** 2026-08-10 against `lakehouse/spark:4.0.0`, Hive
+  Metastore 4.0.1, Unity Catalog v0.5.0 (pinned), MinIO
+  RELEASE.2025-09-07T16-13-09Z, at the commit carrying review-06's fixes.
+  Steps 1 to 3 and 6 executed this day (smoke green on the pinned UC image,
+  all verify scripts green including the inverted-range check); steps 4, 5
+  and 8 last executed in full during the phase-09 demo run and the review-06
+  convergence reproduction, against the same images.
