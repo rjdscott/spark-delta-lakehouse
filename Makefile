@@ -16,11 +16,13 @@ setup: ## Create the venv and install dev tooling
 
 check: docs-check lint test ## Everything CI runs. The gate for every phase and every PR.
 
-docs: ## Regenerate the docs index tables
+docs: ## Regenerate the index tables, the ERD and the bus matrix
+	$(UV) run python scripts/model_docs.py
 	$(PY) scripts/docs_index.py
 
-docs-check: ## Fail if an index table is stale or a docs rule is broken
+docs-check: ## Fail if any generated doc is stale or a docs rule is broken
 	$(PY) scripts/docs_index.py --check
+	$(UV) run python scripts/model_docs.py --check
 
 lint: ## Lint and format-check
 	$(UV) run ruff check .
