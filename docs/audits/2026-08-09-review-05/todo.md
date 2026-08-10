@@ -7,7 +7,7 @@
 - [x] **H-02** P0: rewrite the README. The brief wants the thesis in under 400
       words, how to run each phase, and an honest scope statement.
       [`#h-02`](01-coverage-and-currency.md#h-02)
-- [ ] **H-03** P0: bring the runbook up to the current stack, and add the
+- [x] **H-03** P0: bring the runbook up to the current stack, and add the
       pipeline procedure it has never had.
       [`#h-03`](01-coverage-and-currency.md#h-03)
 - [x] **M-04** P0: track the version matrix. Fixed before the merge.
