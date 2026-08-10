@@ -43,6 +43,19 @@ services:
       "
     restart: "no"
 
+  # Creates the lakehouse catalog and the three schemas in Unity Catalog, so
+  # a cold stack matches the README's claim that UC holds the namespace
+  # (review-07 H-21). Idempotent; safe on every stack-up.
+  uc-init:
+    image: ${CURL_IMAGE}
+    depends_on:
+      unitycatalog:
+        condition: service_healthy
+    volumes:
+      - ./uc/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+    restart: "no"
+
   # --- Catalog layer -------------------------------------------------------
   catalog-db:
     image: ${POSTGRES_IMAGE}

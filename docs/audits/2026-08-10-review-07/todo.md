@@ -6,21 +6,21 @@ Remediation PRs cite the finding codes.
 
 ## P0: the demo shows wrong numbers or dies on a fresh machine
 
-- [ ] **H-01** P0: widen `build_dim_date` to cover account open/close dates;
+- [x] **H-01** P0: widen `build_dim_date` to cover account open/close dates;
       extend the orphan check to `fact_account_lifecycle` and
       `fact_daily_balance`
-- [ ] **H-02** P0: clamp the generator's initial close_date draw to the
+- [x] **H-02** P0: clamp the generator's initial close_date draw to the
       first batch date; regenerate data; pin the invariant in
       test_generate and verify_gold
-- [ ] **H-03** P0: classify blank-category debits on merchant-less products
+- [x] **H-03** P0: classify blank-category debits on merchant-less products
       as NOT_APPLICABLE, not UNKNOWN
-- [ ] **H-04** P0: fix the effective_to catalog comment ("9999-12-31 while
+- [x] **H-04** P0: fix the effective_to catalog comment ("9999-12-31 while
       current"); propagate to the live tables
-- [ ] **H-16** P0: reorder the bronze rescue projection so the branch works;
+- [x] **H-16** P0: reorder the bronze rescue projection so the branch works;
       plant an eighth defect exercising it; add a read_extract test
-- [ ] **H-21** P0: create the UC namespace in compose (`uc-init` service),
+- [x] **H-21** P0: create the UC namespace in compose (`uc-init` service),
       so a cold stack matches the README's claim
-- [ ] **H-30** P0: refresh the phase-07/08 Verification fences to current
+- [x] **H-30** P0: refresh the phase-07/08 Verification fences to current
       output; annotate review-05 M-05 as partially applied
 
 ## P1: the correctness claims a skeptic will probe
@@ -74,7 +74,9 @@ Remediation PRs cite the finding codes.
 
 - [ ] **L-09** P3: anchor days_open to the warehouse high-water mark
 - [ ] **L-14** P3: scd2 dedupe tiebreak over all attributes
-- [ ] **L-15** P3: scd2 docstring defect count and deletion paragraph
+- [x] **L-15** P3: scd2 docstring defect count and deletion paragraph
+      (done alongside the P0s: the defect-8 addition made the stale count
+      actively false, so it was corrected in the same pass)
 - [ ] **L-19** P3: DEFECTS.md forty-vs-37 wording; pin the count
 - [ ] **L-20** P3: defect-6 realised percentages with denominators
 - [ ] **L-29** P3: .dockerignore
@@ -82,7 +84,7 @@ Remediation PRs cite the finding codes.
 
 ## Cross-ticks to prior reviews
 
-- [ ] review-05 todo: annotate M-05 as partially applied (H-30)
-- [ ] review-05 todo: M-06 closed, `make help` covers all targets
-- [ ] review-04 todo: M-04 closed as resolved-by-behavior (106
+- [x] review-05 todo: annotate M-05 as partially applied (H-30)
+- [x] review-05 todo: M-06 closed, `make help` covers all targets
+- [x] review-04 todo: M-04 closed as resolved-by-behavior (106
       no-transaction accounts, all pre-window closures)

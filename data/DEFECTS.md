@@ -45,7 +45,7 @@ extra rows bypass the snapshot filter, so those parties were deleted and still
 emitting versions and only 23 of 25 deletions actually happened. Each defect
 tested alone still passed. Defects that overlap stop testing what they claim.
 
-## The seven
+## The eight
 
 ### 1. Exact duplicate rows, every source, every batch
 
@@ -129,6 +129,20 @@ the last known version standing. Whichever is chosen gets an ADR, because all
 three are defensible and they answer different questions.
 
 **Proven by:** `test_defect_7_parties_are_hard_deleted_between_batches`
+
+### 8. The batch 3 party extract carries a column the spec does not declare
+
+Every batch 3 party row includes `marketing_consent`, a column no spec
+knows about. The value is derived from the party id rather than the random
+stream, so planting it changes nothing else in the data.
+
+**Exercises:** bronze's `_rescued_data` path. An undeclared column must land
+as JSON in the rescue column, not be dropped and not abort the load. Until
+review-07 H-16 this branch threw `AnalysisException` on the exact input it
+existed to survive, and no data had ever taken it.
+
+**Proven by:** `test_defect_8_batch_3_party_extract_carries_an_undeclared_column`,
+and `tests/test_bronze.py` exercises the rescue itself.
 
 ## Regenerating
 

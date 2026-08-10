@@ -28,25 +28,34 @@ docker compose -f docker/compose.yaml --env-file docker/.env exec -T app \
   /opt/spark/bin/spark-submit --master spark://spark-master:7077 scripts/verify_gold.py
 ```
 
-Expected:
+Expected (refreshed 2026-08-10 with the review-07 P0 fixes, which changed
+the data and the classification; the fence is byte-comparable to real
+output, commentary sits below it):
 
 ```
-fact grain          : rows=75,918 distinct txn_id=75,918 OK
-party_sk               orphan keys=     0  null keys=   294
-(294 fell to 0 when phase 09 added the unknown-party member; see the
-progress log and review-05 M-05)
+fact grain          : rows=75,491 distinct txn_id=75,491 OK
+party_sk               orphan keys=     0  null keys=     0
 account_sk             orphan keys=     0  null keys=     0
 merchant_category_sk   orphan keys=     0  null keys=     0
 date_key               orphan keys=     0  null keys=     0
-facts via UNKNOWN category: 15,140
-multi-version parties: facts=14,644 inside effective range=14,644
-  of those, resolved to a NON-current version: 12,967
-late-settling facts : 23,764
+inferred members    : 0
+facts via UNKNOWN category: 1,843
+multi-version parties: facts=14,899 inside effective range=14,899
+  of those, resolved to a NON-current version: 13,247
+late-settling facts : 23,851
 ```
+
+History of the numbers, because three audits have now caught this fence
+stale: party_sk nulls were 294 when this phase landed and fell to 0 when
+phase 09 added the unknown-party member (review-05 M-05). UNKNOWN facts
+were 15,140 until review-06 M-06 split NOT_APPLICABLE out (2,289), then
+1,843 when review-07 H-03 stopped booking merchant-less products as source
+gaps. The fact count and the headline pair moved when review-07 H-02
+clamped the generator's close dates and the data regenerated.
 
 The line that matters is the last pair. Every fact belonging to a party with
 more than one version falls inside the effective range it was joined on, and
-12,967 of them resolved to a version that is **not** current. A lazy join to
+13,247 of them resolved to a version that is **not** current. A lazy join to
 `is_current` would produce a different and wrong answer for all of them, which
 is what makes the SCD2 work in phase 07 worth its cost.
 

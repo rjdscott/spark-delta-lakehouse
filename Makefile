@@ -30,7 +30,7 @@ lint: ## Lint and format-check
 
 test-spark: ## Run the transformation unit tests inside the driver container
 	$(COMPOSE) exec -T app sh -c 'PYTHONPATH="/opt/lakehouse/src:/opt/spark/python:$$(ls /opt/spark/python/lib/py4j-*-src.zip)" \
-		python3 -m pytest tests/test_scd2.py -q -p no:cacheprovider'
+		python3 -m pytest tests/test_scd2.py tests/test_bronze.py -q -p no:cacheprovider'
 
 test: ## Run tests
 	$(UV) run pytest -q

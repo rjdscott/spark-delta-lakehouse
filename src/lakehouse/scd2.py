@@ -1,7 +1,9 @@
 """SCD Type 2: one row per business key per version of its tracked attributes.
 
-This is the hardest correctness problem in the repo, and three of the seven
-seeded defects aim at it directly.
+This is the hardest correctness problem in the repo, and four of the eight
+seeded defects aim at it directly: duplicates, the same-day double change,
+out-of-sequence arrival, and hard deletion, whose derived handling
+(ADR 0010) is the second half of this module.
 
 **Why the timeline is recomputed rather than appended to.** The obvious
 incremental design closes the current row and inserts a new one. It needs the

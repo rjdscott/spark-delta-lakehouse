@@ -49,9 +49,12 @@ def read_extract(spark: SparkSession, spec: Spec, path: str, batch_id: str) -> D
     unexpected = [c for c in header if c not in declared]
     if unexpected:
         wide = spark.read.csv(path, header=True, inferSchema=False)
+        # Attach the rescue column while the unexpected columns still exist;
+        # projecting first left it referencing columns that were already gone
+        # and the branch threw on every input it existed for (review-07 H-16).
         rescued = F.to_json(F.struct(*[F.col(c) for c in unexpected]))
-        raw = wide.select(*[F.col(c).cast("string").alias(c) for c in declared]).withColumn(
-            RESCUED_COLUMN, rescued
+        raw = wide.withColumn(RESCUED_COLUMN, rescued).select(
+            *[F.col(c).cast("string").alias(c) for c in declared], RESCUED_COLUMN
         )
     else:
         raw = raw.withColumn(RESCUED_COLUMN, F.lit(None).cast("string"))

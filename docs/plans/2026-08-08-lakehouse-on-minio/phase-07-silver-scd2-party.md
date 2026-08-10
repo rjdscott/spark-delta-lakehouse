@@ -26,25 +26,42 @@ docker compose -f docker/compose.yaml --env-file docker/.env exec -T app \
   /opt/spark/bin/spark-submit --master spark://spark-master:7077 scripts/verify_scd2.py
 ```
 
-Expected:
+Expected (refreshed 2026-08-10 with the review-07 P0 fixes; the fence is
+byte-comparable to real output, commentary sits below it):
 
 ```
 overlapping ranges  : 0
 timeline gaps       : 0
+inverted ranges     : 0
 keys with >1 current: 0
 keys with 0 current : 25  (deleted parties, ADR 0007)
-same-day versions   : 3 keys
-versions per party  : min=1 max=6 mean=1.21
+same-day versions   : 2 keys
+versions per party  : min=1 max=6 mean=1.22
 no-op versions      : 0
 ```
 
+The 25 zero-current keys are the deleted parties and are correct. Same-day
+keys fell from 3 to 2 when ADR 0008's 1900-01-01 sentinel moved every first
+version off its batch date; the `inverted ranges` line was added by
+review-06 M-12.
+
 Convergence, which is the property the design was chosen for. Drop
-`silver.party`, replay the batches as 3, 1, 2, and compare:
+`silver.party`, replay the batches as 3, 1, 2, and compare (refreshed
+2026-08-10 on the review-07 data; the fingerprint is
+`sum(abs(xxhash64(all columns as string))) mod 10^13`):
 
 ```
-in order      ROWS 2424 FINGERPRINT 5216772104057
-out of order  ROWS 2424 FINGERPRINT 5216772104057
+in order      ROWS 2430 CURRENT 1975 FINGERPRINT 9070861178151
+out of order  ROWS 2430 CURRENT 1975 FINGERPRINT 9070861178151
 ```
+
+In the 3,1,2 replay the 25 deletions land during the batch-1 step, because
+the derivation reads the whole snapshot stream rather than the batch being
+processed (ADR 0010). Review-07 H-09 records the limit of this proof: it
+tests deletion convergence and attribute-version convergence on data
+without an intervening late arrival, and the no-op drop makes the
+universal claim order-lucky. The decision on that is the H-09 punchlist
+item, not this fence.
 
 ## Artifacts
 

@@ -192,6 +192,26 @@ def test_no_transactions_after_an_account_closes(raw):
                 )
 
 
+def test_a_closed_status_means_the_closure_already_happened(raw):
+    """Review-07 H-02: CLOSED with a close date after the extract date is a
+    self-contradictory row, and 35 of them made the demo count accounts as
+    closed while they were still transacting."""
+    for batch in BATCH_DATES:
+        for r in read(raw, batch, "account"):
+            if r["status"] == "CLOSED":
+                assert r["close_date"] and r["close_date"] <= batch, (
+                    f"{r['account_id']} CLOSED with close_date {r['close_date']} in {batch}"
+                )
+
+
+def test_defect_8_batch_3_party_extract_carries_an_undeclared_column(raw):
+    """Bronze must rescue a column the spec does not declare (review-07 H-16).
+    Only the last batch carries it, so the first two prove the quiet path."""
+    assert "marketing_consent" in read(raw, BATCH_DATES[2], "party")[0]
+    for batch in BATCH_DATES[:2]:
+        assert "marketing_consent" not in read(raw, batch, "party")[0]
+
+
 def test_geography_is_internally_consistent(raw):
     """Suburb, state and postcode travel together or the address is fiction."""
     pairs = {(r["suburb"], r["state"], r["postcode"]) for r in read(raw, BATCH_DATES[0], "party")}

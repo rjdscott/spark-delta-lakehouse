@@ -31,7 +31,7 @@ LINEAGE_COLUMNS = (
 # also therefore not in the spec.
 SCD2_COLUMNS = (
     ("effective_from", "timestamp", "Inclusive start of this version's validity"),
-    ("effective_to", "timestamp", "Exclusive end of this version's validity, null if current"),
+    ("effective_to", "timestamp", "Exclusive end of validity, 9999-12-31 while current"),
     ("is_current", "boolean", "True for exactly one version per business key"),
 )
 

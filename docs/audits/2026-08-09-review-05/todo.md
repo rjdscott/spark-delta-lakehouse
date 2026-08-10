@@ -12,7 +12,11 @@
       [`#h-03`](01-coverage-and-currency.md#h-03)
 - [x] **M-04** P0: track the version matrix. Fixed before the merge.
 - [x] **M-05** P2: correct the stale expected output in phase 08.
-- [ ] **M-06** P3: document or accept the five bare make targets.
+      (Review-07 H-30: only partially applied; the UNKNOWN line stayed
+      stale. Fully refreshed with the review-07 P0 fixes.)
+- [x] **M-06** P3: document or accept the five bare make targets.
+      (Closed by review-07: `make help` lists all 24 targets with
+      descriptions; verified live.)
 - [x] **L-07** P2: reference the verification scripts from the runbook.
 
 ## Carried, still open
