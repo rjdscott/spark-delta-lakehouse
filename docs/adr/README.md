@@ -49,4 +49,5 @@ line. Don't hand-edit.
 | [0008](0008-the-first-version-of-a-dimension-starts-at-the-beginning-of-time.md) | The first version of a dimension starts at the beginning of time | Accepted |
 | [0009](0009-store-the-daily-balance-snapshot-rather-than-derive-it.md) | Store the daily balance snapshot rather than derive it | Accepted |
 | [0010](0010-deletion-derives-from-the-snapshot-stream.md) | Deletion derives from the snapshot stream, not from the batch in hand | Accepted |
+| [0011](0011-the-scd2-rebuild-reads-bronze-not-the-stored-table.md) | The SCD2 rebuild reads bronze, not the stored table | Accepted |
 <!-- index:end -->

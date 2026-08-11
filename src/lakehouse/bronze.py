@@ -46,6 +46,16 @@ def read_extract(spark: SparkSession, spec: Spec, path: str, batch_id: str) -> D
     # explicit schema drops them silently, so read the header separately and
     # capture the difference rather than pretending it did not happen.
     header = spark.read.csv(path, header=True, inferSchema=False).columns
+    missing = [c for c in declared if c not in header]
+    if missing:
+        # The explicit schema binds by position, so loading a short header
+        # would silently shift every later column; a timestamp lands in
+        # `segment` and the sequencing column goes null (review-07 M-17).
+        # The header is already in hand, so refuse loudly instead.
+        raise ValueError(
+            f"{path}: extract header is missing declared columns {missing}; "
+            "refusing to load by position"
+        )
     unexpected = [c for c in header if c not in declared]
     if unexpected:
         wide = spark.read.csv(path, header=True, inferSchema=False)

@@ -60,6 +60,18 @@ def test_unexpected_column_is_rescued_not_fatal(spark, party_spec, tmp_path):
     assert out[0][declared[0]] == "v0"
 
 
+def test_missing_declared_column_refuses_loudly(spark, party_spec, tmp_path):
+    """Review-07 M-17: an explicit schema binds by position, so a short
+    header would silently shift every later column. Refuse instead."""
+    declared = [a.name for a in party_spec.attributes]
+    short = [c for c in declared if c != "segment"]
+    row = [f"v{i}" for i in range(len(short))]
+    path = write_csv(tmp_path / "short.csv", short, [row])
+
+    with pytest.raises(ValueError, match="segment"):
+        read_extract(spark, party_spec, path, "2026-03-15")
+
+
 def test_clean_extract_rescues_nothing(spark, party_spec, tmp_path):
     declared = [a.name for a in party_spec.attributes]
     row = [f"v{i}" for i in range(len(declared))]

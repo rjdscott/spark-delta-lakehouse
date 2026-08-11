@@ -33,14 +33,22 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_same_seed_produces_identical_bytes(tmp_path):
-    a, b = tmp_path / "a", tmp_path / "b"
-    Generator().write(a)
-    Generator().write(b)
+def test_generator_matches_the_committed_extracts(tmp_path):
+    """One check, two guarantees (review-07 M-18): determinism is proven
+    cross-process, because the committed tree was written by an earlier run,
+    and staleness cannot hide, because `make seed` ships `data/raw` while the
+    tests exercise a fresh generation. The old twin-write version compared a
+    process to itself and could not catch process-dependent ordering."""
+    committed = Path(__file__).resolve().parent.parent / "data" / "raw"
+    Generator().write(tmp_path)
 
     for batch in BATCH_DATES:
         for name in ("party", "account", "transaction"):
-            assert digest(a / batch / f"{name}.csv") == digest(b / batch / f"{name}.csv")
+            rel = f"{batch}/{name}.csv"
+            assert digest(tmp_path / rel) == digest(committed / rel), (
+                f"{rel}: generator output differs from the committed extract; "
+                "run `make generate` and commit, or revert the generator change"
+            )
 
 
 def test_defect_1_exact_duplicate_rows_in_every_source(raw):

@@ -30,9 +30,12 @@ pipeline, verifying it, and shutting down.
    make stack-ps
    ```
 
-   Expected, all eight services: `catalog-db`, `hive-db`, `hive-metastore`,
-   `minio` and `unitycatalog` healthy; `spark-master`, `spark-worker-1`,
-   `spark-worker-2` and `app` up; `minio-init` exited 0.
+   Expected: `catalog-db`, `hive-db`, `hive-metastore`, `minio` and
+   `unitycatalog` healthy; `spark-master`, `spark-worker-1`, `spark-worker-2`
+   and `app` up; `minio-init` and `uc-init` exited 0. The enumeration is the
+   check; a count would rot the next time a service is added, and did
+   (review-07 M-22). `app` gates on `minio-init` completing, so a bucket
+   failure stops the stack rather than the first job.
 
 3. Prove every seam before touching real data:
 

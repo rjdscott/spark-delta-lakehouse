@@ -37,8 +37,17 @@ def main() -> int:
     many = per_key.filter(F.col("c") > 1).count()
     none = per_key.filter(F.col("c") == 0).count()
     print(f"keys with >1 current: {many}")
-    print(f"keys with 0 current : {none}  (deleted parties, ADR 0007)")
+    print(f"keys with 0 current : {none}  (deleted parties, ADR 0010)")
     ok &= many == 0
+
+    # The zero-current count is asserted, not just printed: it must equal the
+    # keys bronze says vanished from the latest snapshot. Printing it let a
+    # mass closure read as informational (review-07 M-10).
+    from lakehouse.scd2 import snapshot_deletions
+
+    vanished = snapshot_deletions(spark.table("bronze.party"), "party_id").count()
+    print(f"vanished per bronze : {vanished}  {'OK' if none == vanished else 'MISMATCH'}")
+    ok &= none == vanished
 
     # Defect 2: two versions on one date, at different times.
     same_day = (

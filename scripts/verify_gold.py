@@ -100,8 +100,6 @@ def orphan_check(spark, fact, column, table, target) -> bool:
 
 def check_daily_balance(spark) -> bool:
     """A periodic snapshot: every open day present, balances carrying forward."""
-    from pyspark.sql.window import Window
-
     bal = spark.table("gold.fact_daily_balance")
     ok = True
     print()
@@ -122,29 +120,31 @@ def check_daily_balance(spark) -> bool:
     ok &= orphan_check(spark, bal, "account_sk", "gold.dim_account", "account_sk")
     ok &= orphan_check(spark, bal, "date_key", "gold.dim_date", "date_key")
 
-    # Continuity: yesterday's closing balance is today's opening balance.
-    day = Window.partitionBy("account_id").orderBy("date_key")
-    breaks = (
-        bal.withColumn("_prev_close", F.lag("closing_balance").over(day))
+    # Reconcile against silver, the layer this fact is derived from. The old
+    # checks here compared the fact to itself (opening = closing - movement is
+    # true by construction) and could not fail; a dropped movement passed
+    # every one of them (review-07 M-05). These can fail.
+    silver_txn = spark.table("silver.transaction")
+    truth = silver_txn.groupBy("account_id").agg(F.sum("amount").alias("truth"))
+    total = bal.groupBy("account_id").agg(F.sum("movement").alias("total"))
+    mismatched = (
+        total.join(truth, on="account_id", how="full")
         .filter(
-            F.col("_prev_close").isNotNull() & (F.col("_prev_close") != F.col("opening_balance"))
+            F.abs(F.coalesce(F.col("total"), F.lit(0)) - F.coalesce(F.col("truth"), F.lit(0)))
+            > 0.01
         )
         .count()
     )
-    print(f"continuity breaks   : {breaks}")
-    ok &= breaks == 0
-
-    # The final closing balance must equal the sum of the account's movements.
-    last = bal.groupBy("account_id").agg(F.max("date_key").alias("date_key"))
-    final = bal.join(last, on=["account_id", "date_key"]).select("account_id", "closing_balance")
-    truth = bal.groupBy("account_id").agg(F.sum("movement").alias("total"))
-    mismatched = (
-        final.join(truth, on="account_id")
-        .filter(F.abs(F.col("closing_balance") - F.col("total")) > 0.01)
-        .count()
-    )
-    print(f"balance mismatches  : {mismatched}")
+    print(f"accounts where gold movement != silver amounts: {mismatched}")
     ok &= mismatched == 0
+
+    gold_count = bal.agg(F.sum("txn_count")).first()[0]
+    silver_count = silver_txn.filter("txn_type != 'OPENING'").count()
+    verdict = "OK" if gold_count == silver_count else "BROKEN"
+    print(
+        f"txn_count total     : gold={gold_count:,} silver non-OPENING={silver_count:,} {verdict}"
+    )
+    ok &= gold_count == silver_count
 
     # No day may fall outside the account's life.
     account = spark.table("gold.dim_account").select("account_id", "open_date", "close_date")

@@ -54,8 +54,8 @@ stack-down: ## Stop the stack, keep the data volumes
 stack-destroy: ## Stop the stack and delete the data volumes
 	$(COMPOSE) down -v
 
-stack-ps: ## Show service status
-	$(COMPOSE) ps
+stack-ps: ## Show service status, including exited init containers
+	$(COMPOSE) ps -a
 
 stack-logs: ## Tail logs for all services
 	$(COMPOSE) logs -f --tail=50

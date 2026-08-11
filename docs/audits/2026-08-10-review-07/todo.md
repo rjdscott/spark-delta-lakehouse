@@ -25,26 +25,26 @@ Remediation PRs cite the finding codes.
 
 ## P1: the correctness claims a skeptic will probe
 
-- [ ] **H-09** P1: decide the fix for order-dependent no-op version loss:
+- [x] **H-09** P1: decide the fix for order-dependent no-op version loss:
       source `existing` from bronze (needs an ADR) or retract the universal
       convergence claim and add the counterexample test. Do not leave the
       claim as written
-- [ ] **M-10** P1: proportional mass-deletion guard; assert the zero-current
+- [x] **M-10** P1: proportional mass-deletion guard; assert the zero-current
       count in verify_scd2 instead of printing it
-- [ ] **M-11** P1: apply_deletions count under the MERGE's own predicate;
+- [x] **M-11** P1: apply_deletions count under the MERGE's own predicate;
       first test for the function
-- [ ] **M-12** P1: decide untracked-attribute semantics (type 1 vs frozen);
+- [x] **M-12** P1: decide untracked-attribute semantics (type 1 vs frozen);
       pin with a test either way
-- [ ] **M-05** P1: replace verify_gold's tautological balance checks with
+- [x] **M-05** P1: replace verify_gold's tautological balance checks with
       gold-to-silver reconciliation
-- [ ] **M-17** P1: bronze header-vs-spec check so a dropped source column
+- [x] **M-17** P1: bronze header-vs-spec check so a dropped source column
       raises instead of shifting values
-- [ ] **M-18** P1: point the determinism test at the committed data/raw
+- [x] **M-18** P1: point the determinism test at the committed data/raw
       digests
-- [ ] **M-22** P1: fix the runbook service count; make stack-ps show exited
+- [x] **M-22** P1: fix the runbook service count; make stack-ps show exited
       init containers or gate on minio-init in compose
-- [ ] **M-28** P1: correct CLAUDE.md's branch-protection sentence
-- [ ] **M-34** P1: correct CLAUDE.md's requirements-dev.txt and phasing
+- [x] **M-28** P1: correct CLAUDE.md's branch-protection sentence
+- [x] **M-34** P1: correct CLAUDE.md's requirements-dev.txt and phasing
       lines
 
 ## P2: drift traps and unrecorded decisions

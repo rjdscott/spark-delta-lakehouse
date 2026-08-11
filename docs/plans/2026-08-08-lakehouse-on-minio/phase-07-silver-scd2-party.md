@@ -34,7 +34,8 @@ overlapping ranges  : 0
 timeline gaps       : 0
 inverted ranges     : 0
 keys with >1 current: 0
-keys with 0 current : 25  (deleted parties, ADR 0007)
+keys with 0 current : 25  (deleted parties, ADR 0010)
+vanished per bronze : 25  OK
 same-day versions   : 2 keys
 versions per party  : min=1 max=6 mean=1.22
 no-op versions      : 0
@@ -57,11 +58,11 @@ out of order  ROWS 2430 CURRENT 1975 FINGERPRINT 9070861178151
 
 In the 3,1,2 replay the 25 deletions land during the batch-1 step, because
 the derivation reads the whole snapshot stream rather than the batch being
-processed (ADR 0010). Review-07 H-09 records the limit of this proof: it
-tests deletion convergence and attribute-version convergence on data
-without an intervening late arrival, and the no-op drop makes the
-universal claim order-lucky. The decision on that is the H-09 punchlist
-item, not this fence.
+processed (ADR 0010). Review-07 H-09 showed the attribute-version half of
+this proof was order-lucky while the rebuild read the lossy stored table;
+ADR 0011 moved the rebuild's source to bronze, which makes convergence
+structural, and the counterexample is pinned in `tests/test_scd2.py`. The
+replay above is now a regression check, not the argument.
 
 ## Artifacts
 

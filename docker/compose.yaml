@@ -194,6 +194,10 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      # The bucket must exist before any job writes; eyeballing minio-init's
+      # exit in stack-ps was the only gate (review-07 M-22).
+      minio-init:
+        condition: service_completed_successfully
       hive-metastore:
         condition: service_healthy
     environment:

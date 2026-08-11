@@ -16,11 +16,22 @@ MERGE cannot do that in one pass, and skipping such records fails the property
 that matters more: replaying batches in any order must converge to the same
 final state.
 
-So for every business key the batch touches, the whole timeline is rebuilt from
-the union of what is already stored and what has just arrived. It is idempotent
-by construction, converges under any replay order, and handles two changes in
-one day without special-casing them. The union pattern survives, one level up:
-the source of truth for a key is existing versions unioned with incoming ones.
+So for every business key the batch touches, the whole timeline is rebuilt
+from bronze, which holds every version ever landed. Not from the stored
+table: the stored table holds only rebuild survivors, and a version pruned
+as a no-op stops being a no-op the moment a later batch delivers an
+out-of-order change before it. Sourcing the rebuild from the stored table
+made convergence order-lucky (review-07 H-09); sourcing it from bronze makes
+it order-independent by construction, because every build of a key is a pure
+function of the full history. ADR 0011 records the decision, the same
+argument ADR 0010 made for deletions: anything written-once loses to a
+rebuild.
+
+**Untracked attributes are frozen at the version that opened them.** A
+version records the row that opened it; a later row that changes only
+untracked attributes is a no-op and leaves no trace. `tracked: false` means
+"changes to this do not matter to history", not "type 1 overwrite". Pinned
+by test, so the choice is deliberate rather than emergent.
 
 **Effective ranges are timestamp-grained, not date-grained.** Defect 2 changes
 one party's address twice in a single day. A `DATE` effective_from would
@@ -186,23 +197,57 @@ def refuse_empty_snapshot(incoming: DataFrame, spec: Spec) -> None:
         )
 
 
-def apply_deletions(spark: SparkSession, spec: Spec, source: Spec) -> int:
+# The derived deleted set may not exceed this fraction of current keys. An
+# extract that vanishes most of the dimension is a truncated file, not a mass
+# offboarding; the zero-row guard alone let a one-row extract close everything
+# (review-07 M-10). One entity uses deletion today, so this is a constant, not
+# a spec field, per the spec's own discipline.
+MAX_DELETION_RATE = 0.10
+
+
+def deletion_closures(current: DataFrame, deleted: DataFrame, key: str) -> tuple[int, int]:
+    """Split the derived deletions into what the merge will apply and what it
+    will refuse.
+
+    Counted under the merge's own predicate, so the reported number is what
+    actually happens: the old count ignored the inverted-range guard and
+    overstated exactly when the guard fired (review-07 M-11). The refused rows
+    are stored versions newer than the deletion evidence (review-06 M-12),
+    left visibly current on purpose.
+    """
+    candidates = current.join(deleted, on=key, how="inner")
+    applied = candidates.filter(F.col("effective_from") < F.col("deleted_ts")).count()
+    refused = candidates.count() - applied
+    return applied, refused
+
+
+def apply_deletions(spark: SparkSession, spec: Spec, source: Spec) -> tuple[int, int]:
     """Re-derive the deleted set and close whatever the rebuild left open.
 
     Runs after every rebuild, unconditionally, which is what makes closures
     idempotent: a key already closed matches nothing (the condition requires
     is_current), a key resurrected by a replayed batch is re-closed here.
 
-    Returns the number of closures applied in this run.
+    Returns (closures applied, closures refused by the inverted-range guard).
     """
     if not spec.absence_means_deletion:
-        return 0
+        return 0, 0
 
     key = spec.business_key[0]
     deleted = snapshot_deletions(spark.table(source.table), key)
 
-    reopened = spark.table(spec.table).filter(F.col("is_current")).join(deleted, on=key, how="semi")
-    count = reopened.count()
+    current = spark.table(spec.table).filter(F.col("is_current"))
+    current_count = current.count()
+    deleted_count = deleted.count()
+    if current_count and deleted_count / current_count > MAX_DELETION_RATE:
+        raise RuntimeError(
+            f"{spec.table}: the snapshot stream implies {deleted_count} of "
+            f"{current_count} current keys are deleted, above the "
+            f"{MAX_DELETION_RATE:.0%} guard. That is a truncated or broken "
+            "extract until a human says otherwise."
+        )
+
+    count, refused = deletion_closures(current, deleted, key)
     if count:
         (
             DeltaTable.forName(spark, spec.table)
@@ -224,7 +269,7 @@ def apply_deletions(spark: SparkSession, spec: Spec, source: Spec) -> int:
             )
             .execute()
         )
-    return count
+    return count, refused
 
 
 def build(spark: SparkSession, spec: Spec, batch_id: str) -> dict:
@@ -243,10 +288,18 @@ def build(spark: SparkSession, spec: Spec, batch_id: str) -> dict:
 
     key = spec.business_key[0]
     affected = incoming.select(key).distinct()
-    stored = spark.table(spec.table)
-    existing = _versions(stored.join(affected, on=key, how="semi"), spec)
 
-    rebuilt = rebuild_timeline(existing.unionByName(incoming), spec)
+    # The full history for the affected keys, from bronze, not from the
+    # stored table. Bronze holds every version ever landed, including the
+    # no-ops a previous rebuild pruned; the stored table does not, and
+    # rebuilding from it made the result depend on replay order
+    # (review-07 H-09, ADR 0011). The incoming batch is already in bronze
+    # by the time this runs, so history includes it.
+    history = _versions(
+        coerce(spark.table(source.table).join(affected, on=key, how="semi"), spec), spec
+    )
+
+    rebuilt = rebuild_timeline(history, spec)
 
     # Replace exactly the affected keys. Matching on key plus effective_from
     # lets an unchanged version stay put, an amended one update in place, and a
@@ -267,11 +320,12 @@ def build(spark: SparkSession, spec: Spec, batch_id: str) -> dict:
         .execute()
     )
 
-    closed = apply_deletions(spark, spec, source)
+    closed, refused = apply_deletions(spark, spec, source)
     return {
         "rows": spark.table(spec.table).count(),
         "current": spark.table(spec.table).filter(F.col("is_current")).count(),
         "closed_as_deleted": closed,
+        "deletions_refused": refused,
     }
 
 

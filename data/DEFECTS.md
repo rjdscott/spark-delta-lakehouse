@@ -150,6 +150,8 @@ and `tests/test_bronze.py` exercises the rescue itself.
 make generate
 ```
 
-The seed is fixed at 42. The same seed produces byte-identical files, asserted
-by `test_same_seed_produces_identical_bytes`, so a reviewer can reproduce any
-bug from the seed alone.
+The seed is fixed at 42. A fresh generation must be byte-identical to the
+committed `data/raw`, asserted by `test_generator_matches_the_committed_extracts`.
+That proves determinism across processes and catches a generator edit whose
+output was never regenerated, so a reviewer can reproduce any bug from the
+seed alone and the demo always runs on the bytes the tests exercised.
