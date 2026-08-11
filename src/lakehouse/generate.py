@@ -30,7 +30,7 @@ Extract shapes differ on purpose, because they differ in real banks:
 - **transaction is an incremental event stream.** Events are facts about a
   moment and are not restated.
 
-The generator plants seven defects on purpose, documented in
+The generator plants eight defects on purpose, documented in
 `data/DEFECTS.md`. A pipeline that only ever sees clean data proves nothing.
 
 Determinism matters more than realism: the same seed must produce
@@ -189,11 +189,16 @@ class Generator:
                 product = self.rng.choices(tuple(PRODUCT_PROFILE), weights=(45, 25, 18, 7, 5))[0]
                 opened = first_batch - dt.timedelta(days=self.rng.randint(45, 3650))
                 status = self.rng.choices(("OPEN", "DORMANT", "CLOSED"), weights=(84, 11, 5))[0]
-                close_date = (
-                    opened + dt.timedelta(days=self.rng.randint(60, 2000))
-                    if status == "CLOSED"
-                    else None
-                )
+                if status == "CLOSED":
+                    # CLOSED in the first extract means the closure already
+                    # happened. Unclamped, the draw put close dates years past
+                    # the data while the status said closed, and the demo
+                    # counted accounts as closed that were still transacting
+                    # (review-07 H-02).
+                    drawn = opened + dt.timedelta(days=self.rng.randint(60, 2000))
+                    close_date = min(drawn, first_batch - dt.timedelta(days=1))
+                else:
+                    close_date = None
                 self.accounts[aid] = {
                     "account_id": aid,
                     "party_id": pid,
@@ -453,6 +458,13 @@ class Generator:
                 ("transaction", self._transactions(batch, index)),
             ):
                 rows = self._duplicate_some(rows)
+                if name == "party" and batch == BATCH_DATES[2]:
+                    # Defect 8: the source adds a column the spec does not
+                    # declare. Bronze must land it in _rescued_data rather
+                    # than drop it or die (review-07 H-16). Derived from the
+                    # party id, not the rng, so the draw stream is untouched.
+                    for row in rows:
+                        row["marketing_consent"] = "Y" if int(row["party_id"][1:]) % 2 else "N"
                 path = target / f"{name}.csv"
                 with path.open("w", newline="") as fh:
                     writer = csv.DictWriter(fh, fieldnames=list(rows[0]))

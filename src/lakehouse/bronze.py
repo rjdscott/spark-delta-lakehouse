@@ -46,12 +46,25 @@ def read_extract(spark: SparkSession, spec: Spec, path: str, batch_id: str) -> D
     # explicit schema drops them silently, so read the header separately and
     # capture the difference rather than pretending it did not happen.
     header = spark.read.csv(path, header=True, inferSchema=False).columns
+    missing = [c for c in declared if c not in header]
+    if missing:
+        # The explicit schema binds by position, so loading a short header
+        # would silently shift every later column; a timestamp lands in
+        # `segment` and the sequencing column goes null (review-07 M-17).
+        # The header is already in hand, so refuse loudly instead.
+        raise ValueError(
+            f"{path}: extract header is missing declared columns {missing}; "
+            "refusing to load by position"
+        )
     unexpected = [c for c in header if c not in declared]
     if unexpected:
         wide = spark.read.csv(path, header=True, inferSchema=False)
+        # Attach the rescue column while the unexpected columns still exist;
+        # projecting first left it referencing columns that were already gone
+        # and the branch threw on every input it existed for (review-07 H-16).
         rescued = F.to_json(F.struct(*[F.col(c) for c in unexpected]))
-        raw = wide.select(*[F.col(c).cast("string").alias(c) for c in declared]).withColumn(
-            RESCUED_COLUMN, rescued
+        raw = wide.withColumn(RESCUED_COLUMN, rescued).select(
+            *[F.col(c).cast("string").alias(c) for c in declared], RESCUED_COLUMN
         )
     else:
         raw = raw.withColumn(RESCUED_COLUMN, F.lit(None).cast("string"))

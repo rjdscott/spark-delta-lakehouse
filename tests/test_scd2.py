@@ -22,9 +22,11 @@ import pytest
 pyspark = pytest.importorskip("pyspark")
 
 from pyspark.sql import SparkSession  # noqa: E402
+from pyspark.sql import functions as F  # noqa: E402
 
 from lakehouse.scd2 import (  # noqa: E402
     FOREVER,
+    deletion_closures,
     rebuild_timeline,
     refuse_empty_snapshot,
     snapshot_deletions,
@@ -124,10 +126,16 @@ def test_untracked_change_opens_no_version(spark, party_spec):
         ("P1", "1 Same Road", "2026-01-15 09:00:00", "Old Name"),
         ("P1", "1 Same Road", "2026-02-15 09:00:00", "Corrected Name"),
     ]
-    result = timeline(spark, party_spec, rows)
+    result = rebuild_timeline(versions(spark, rows), party_spec).collect()
 
     assert len(result) == 1
     assert result[0]["is_current"]
+    # Frozen at the version that opened it, by decision (review-07 M-12): a
+    # version records the row that opened it, and a later row changing only
+    # untracked attributes leaves no trace. `tracked: false` means "changes
+    # do not matter to history", not "type 1 overwrite". This assertion is
+    # the pin; if the semantics change, change it deliberately.
+    assert result[0]["full_name"] == "Old Name"
 
 
 def test_exact_duplicates_collapse(spark, party_spec):
@@ -137,6 +145,50 @@ def test_exact_duplicates_collapse(spark, party_spec):
         ("P1", "1 Dup Road", "2026-01-15 09:00:00"),
     ]
     assert len(timeline(spark, party_spec, rows)) == 1
+
+
+def test_a_pruned_no_op_revives_when_a_late_arrival_lands_between(spark, party_spec):
+    """Review-07 H-09's counterexample, pinned.
+
+    A version that changes nothing tracked is pruned by the rebuild. It stops
+    being a no-op the moment a late arrival delivers a tracked change between
+    it and its predecessor: the full history is then X, Y, X, three versions.
+    This is why build() sources the rebuild from bronze (ADR 0011): the
+    stored table has already lost the pruned row, and rebuilding from it
+    produced two versions ending on Y, an answer that depended on replay
+    order.
+    """
+    b1 = ("P1", "1 X Road", "2026-01-15 09:00:00", "Name")
+    b2 = ("P1", "1 X Road", "2026-03-15 09:00:00", "Corrected")
+    b3 = ("P1", "9 Y Road", "2026-02-15 09:00:00", "Name")
+
+    # After batches 1 and 2 alone, the second row is a genuine no-op.
+    assert len(timeline(spark, party_spec, [b1, b2])) == 1
+
+    # With the late arrival in the history, it is a version again.
+    result = timeline(spark, party_spec, [b1, b2, b3])
+    assert len(result) == 3
+    assert result[-1]["is_current"]
+    assert result[-1]["address_line"] == "1 X Road"
+
+
+def test_deletion_closure_count_respects_the_inverted_range_guard(spark):
+    """Review-07 M-11: the reported count uses the merge's own predicate.
+
+    P1's stored version predates the deletion evidence and closes; P2's is
+    newer (a corrective re-extract) and the merge refuses it, so it must not
+    be counted as closed.
+    """
+    current = spark.createDataFrame(
+        [("P1", "2026-01-15 00:00:00"), ("P2", "2026-03-01 00:00:00")],
+        "party_id string, effective_from string",
+    ).withColumn("effective_from", F.col("effective_from").cast("timestamp"))
+    deleted = spark.createDataFrame(
+        [("P1", "2026-02-15 00:00:00"), ("P2", "2026-02-15 00:00:00")],
+        "party_id string, deleted_ts string",
+    ).withColumn("deleted_ts", F.col("deleted_ts").cast("timestamp"))
+
+    assert deletion_closures(current, deleted, "party_id") == (1, 1)
 
 
 def bronze_like(spark, appearances):

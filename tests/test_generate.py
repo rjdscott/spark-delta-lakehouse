@@ -33,14 +33,22 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_same_seed_produces_identical_bytes(tmp_path):
-    a, b = tmp_path / "a", tmp_path / "b"
-    Generator().write(a)
-    Generator().write(b)
+def test_generator_matches_the_committed_extracts(tmp_path):
+    """One check, two guarantees (review-07 M-18): determinism is proven
+    cross-process, because the committed tree was written by an earlier run,
+    and staleness cannot hide, because `make seed` ships `data/raw` while the
+    tests exercise a fresh generation. The old twin-write version compared a
+    process to itself and could not catch process-dependent ordering."""
+    committed = Path(__file__).resolve().parent.parent / "data" / "raw"
+    Generator().write(tmp_path)
 
     for batch in BATCH_DATES:
         for name in ("party", "account", "transaction"):
-            assert digest(a / batch / f"{name}.csv") == digest(b / batch / f"{name}.csv")
+            rel = f"{batch}/{name}.csv"
+            assert digest(tmp_path / rel) == digest(committed / rel), (
+                f"{rel}: generator output differs from the committed extract; "
+                "run `make generate` and commit, or revert the generator change"
+            )
 
 
 def test_defect_1_exact_duplicate_rows_in_every_source(raw):
@@ -190,6 +198,26 @@ def test_no_transactions_after_an_account_closes(raw):
                 assert r["txn_ts"][:10] < account["close_date"], (
                     f"{r['txn_id']} on {r['account_id']} closed {account['close_date']}"
                 )
+
+
+def test_a_closed_status_means_the_closure_already_happened(raw):
+    """Review-07 H-02: CLOSED with a close date after the extract date is a
+    self-contradictory row, and 35 of them made the demo count accounts as
+    closed while they were still transacting."""
+    for batch in BATCH_DATES:
+        for r in read(raw, batch, "account"):
+            if r["status"] == "CLOSED":
+                assert r["close_date"] and r["close_date"] <= batch, (
+                    f"{r['account_id']} CLOSED with close_date {r['close_date']} in {batch}"
+                )
+
+
+def test_defect_8_batch_3_party_extract_carries_an_undeclared_column(raw):
+    """Bronze must rescue a column the spec does not declare (review-07 H-16).
+    Only the last batch carries it, so the first two prove the quiet path."""
+    assert "marketing_consent" in read(raw, BATCH_DATES[2], "party")[0]
+    for batch in BATCH_DATES[:2]:
+        assert "marketing_consent" not in read(raw, batch, "party")[0]
 
 
 def test_geography_is_internally_consistent(raw):

@@ -30,9 +30,12 @@ pipeline, verifying it, and shutting down.
    make stack-ps
    ```
 
-   Expected, all eight services: `catalog-db`, `hive-db`, `hive-metastore`,
-   `minio` and `unitycatalog` healthy; `spark-master`, `spark-worker-1`,
-   `spark-worker-2` and `app` up; `minio-init` exited 0.
+   Expected: `catalog-db`, `hive-db`, `hive-metastore`, `minio` and
+   `unitycatalog` healthy; `spark-master`, `spark-worker-1`, `spark-worker-2`
+   and `app` up; `minio-init` and `uc-init` exited 0. The enumeration is the
+   check; a count would rot the next time a service is added, and did
+   (review-07 M-22). `app` gates on `minio-init` completing, so a bucket
+   failure stops the stack rather than the first job.
 
 3. Prove every seam before touching real data:
 
@@ -55,7 +58,7 @@ pipeline, verifying it, and shutting down.
 4. Generate the source extracts and land them in the MinIO landing zone:
 
    ```bash
-   make generate   # seeded, deterministic; 7 planted defects (data/DEFECTS.md)
+   make generate   # seeded, deterministic; 8 planted defects (data/DEFECTS.md)
    make seed
    ```
 
@@ -228,8 +231,10 @@ tests inside the container, where pyspark lives.
 
 - **Last verified:** 2026-08-10 against `lakehouse/spark:4.0.0`, Hive
   Metastore 4.0.1, Unity Catalog v0.5.0 (pinned), MinIO
-  RELEASE.2025-09-07T16-13-09Z, at the commit carrying review-06's fixes.
-  Steps 1 to 3 and 6 executed this day (smoke green on the pinned UC image,
-  all verify scripts green including the inverted-range check); steps 4, 5
-  and 8 last executed in full during the phase-09 demo run and the review-06
-  convergence reproduction, against the same images.
+  RELEASE.2025-09-07T16-13-09Z, at the commit carrying review-07's P0
+  fixes. Steps 2, 4, 5 and 6 executed in full this day on regenerated data
+  (all four verify scripts green, every orphan check zero across all three
+  fact tables, convergence replay 3,1,2 fingerprint-identical), and the
+  `uc-init` cold path was proven by deleting the catalog and re-running the
+  service. Steps 1, 3 and 8 last executed earlier the same day against the
+  same images.

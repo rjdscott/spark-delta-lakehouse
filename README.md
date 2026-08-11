@@ -23,8 +23,8 @@ dimensional models built on silver and never on bronze: hash surrogate keys
 that survive a rebuild, and three fact tables at three deliberately different
 grains, because grain is a choice, not a consequence.
 
-The claim is measurable in the data this repo generates. Of the 14,644
-transactions belonging to a customer whose attributes changed, **12,967
+The claim is measurable in the data this repo generates. Of the 14,899
+transactions belonging to a customer whose attributes changed, **13,247
 resolve to a dimension version that is not the current one**, because
 `fact_transaction` joins to the version whose effective range contains the
 transaction's event time. A pipeline that joins to "the current row" answers
@@ -90,7 +90,7 @@ Prerequisites: Docker with the compose plugin, `uv`, `make`.
 
 ```bash
 make stack-up      # MinIO, Hive Metastore, Unity Catalog, Spark master + 2 workers
-make generate      # seeded, deterministic banking extracts (with 7 planted defects)
+make generate      # seeded, deterministic banking extracts (with 8 planted defects)
 make seed          # upload them to the MinIO landing zone
 make demo          # bronze -> silver -> SCD2 -> gold, one batch at a time, narrated
 make demo-queries  # business questions answered by name against the star
@@ -103,7 +103,7 @@ Verification is scripted, not asserted: `make check` (docs integrity, lint,
 unit tests), `make test-spark` (transformation tests, inside the container),
 and four `scripts/verify_*.py` checks covering SCD2 range integrity, grain
 uniqueness, orphan keys, balance continuity and milestone ordering. The data
-carries seven seeded defects ([`data/DEFECTS.md`](data/DEFECTS.md)); a
+carries eight seeded defects ([`data/DEFECTS.md`](data/DEFECTS.md)); a
 pipeline that only ever sees clean data proves nothing.
 
 ## What this is not

@@ -42,6 +42,10 @@ UNKNOWN = "UNKNOWN"
 # both into one member makes "spend by category" answer a question nobody asked.
 NOT_APPLICABLE = "NOT_APPLICABLE"
 MERCHANT_TYPES = ("DEBIT",)
+# Products whose transactions structurally carry no merchant. Mirrors the
+# empty category tuples in generate.PRODUCT_PROFILE; a real source would
+# declare this on the product reference data.
+MERCHANTLESS_PRODUCTS = ("HOME_LOAN", "TERM_DEPOSIT")
 
 
 def surrogate(spec: Spec, *extra: str):
@@ -142,12 +146,21 @@ def build_dim_account(spark: SparkSession, spec: Spec) -> DataFrame:
     return real.unionByName(inferred)
 
 
-def category_code(category, txn_type):
-    """The category a transaction belongs to, including when it has none."""
+def category_code(category, txn_type, product_type):
+    """The category a transaction belongs to, including when it has none.
+
+    A blank on a DEBIT is only a source gap when the product carries
+    merchants at all. A home loan repayment has no merchant because none
+    applies, the same as a salary credit; classifying it UNKNOWN booked
+    1.3 million of mortgage repayments as mystery spend (review-07 H-03).
+    An unresolvable product (an orphan transaction before its account
+    arrives) stays UNKNOWN: claiming not-applicable needs evidence.
+    """
     blank = category.isNull() | (category == "")
+    merchantless = F.coalesce(product_type, F.lit("")).isin(*MERCHANTLESS_PRODUCTS)
     return (
         F.when(~blank, category)
-        .when(txn_type.isin(*MERCHANT_TYPES), F.lit(UNKNOWN))
+        .when(txn_type.isin(*MERCHANT_TYPES) & ~merchantless, F.lit(UNKNOWN))
         .otherwise(F.lit(NOT_APPLICABLE))
         .alias("merchant_category_code")
     )
@@ -162,7 +175,12 @@ def build_dim_merchant_category(spark: SparkSession, spec: Spec) -> DataFrame:
     """
     codes = (
         spark.table("silver.transaction")
-        .select(category_code(F.col("merchant_category"), F.col("txn_type")))
+        .join(
+            spark.table("silver.account").select("account_id", "product_type"),
+            on="account_id",
+            how="left",
+        )
+        .select(category_code(F.col("merchant_category"), F.col("txn_type"), F.col("product_type")))
         .distinct()
     )
     return codes.select(
@@ -176,8 +194,21 @@ def build_dim_merchant_category(spark: SparkSession, spec: Spec) -> DataFrame:
 
 
 def build_dim_date(spark: SparkSession, spec: Spec) -> DataFrame:
-    bounds = spark.table("silver.transaction").agg(
-        F.min(F.to_date("txn_ts")).alias("lo"), F.max(F.to_date("posted_ts")).alias("hi")
+    """One row per day across the range the facts require, as the grain says.
+
+    That range is wider than the transaction window: the lifecycle fact keys
+    account open and close dates into this dimension, and accounts open years
+    before the first extract. Bounding by transactions alone left every
+    opened_date_key an orphan (review-07 H-01).
+    """
+    txn = spark.table("silver.transaction").agg(
+        F.min(F.to_date("txn_ts")).alias("t_lo"), F.max(F.to_date("posted_ts")).alias("t_hi")
+    )
+    acct = spark.table("silver.account").agg(
+        F.min("open_date").alias("a_lo"), F.max("close_date").alias("a_hi")
+    )
+    bounds = txn.crossJoin(acct).select(
+        F.least("t_lo", "a_lo").alias("lo"), F.greatest("t_hi", "a_hi").alias("hi")
     )
     days = bounds.select(F.explode(F.sequence("lo", "hi")).alias("full_date"))
     return days.select(
@@ -205,7 +236,9 @@ def build_fact_transaction(spark: SparkSession, spec: Spec) -> DataFrame:
     party = spark.table("gold.dim_party").select(
         "party_sk", "party_id", "effective_from", "effective_to"
     )
-    account = spark.table("gold.dim_account").select("account_sk", "account_id", "party_id")
+    account = spark.table("gold.dim_account").select(
+        "account_sk", "account_id", "party_id", "product_type"
+    )
     category = spark.table("gold.dim_merchant_category").select(
         "merchant_category_sk", "merchant_category_code"
     )
@@ -224,7 +257,9 @@ def build_fact_transaction(spark: SparkSession, spec: Spec) -> DataFrame:
         )
         .join(
             category.alias("c"),
-            category_code(F.col("t.merchant_category"), F.col("t.txn_type"))
+            category_code(
+                F.col("t.merchant_category"), F.col("t.txn_type"), F.col("a.product_type")
+            )
             == F.col("c.merchant_category_code"),
             "left",
         )
@@ -261,7 +296,15 @@ def build_fact_daily_balance(spark: SparkSession, spec: Spec) -> DataFrame:
     account = spark.table("gold.dim_account").select(
         "account_sk", "account_id", "open_date", "close_date"
     )
-    lo, hi = spark.table("gold.dim_date").agg(F.min("full_date"), F.max("full_date")).first()
+    # The observation window is the transaction span, not dim_date's range:
+    # dim_date now stretches back to the earliest account opening (review-07
+    # H-01), and expanding every account across that would fabricate years of
+    # balance rows before the first observed movement.
+    lo, hi = (
+        spark.table("silver.transaction")
+        .agg(F.min(F.to_date("txn_ts")), F.max(F.to_date("posted_ts")))
+        .first()
+    )
 
     # Expand each account into its own open days with sequence(), rather than
     # joining accounts to a date dimension on a range. A range condition is a

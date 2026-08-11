@@ -29,18 +29,7 @@ def main() -> int:
         ("merchant_category_sk", "gold.dim_merchant_category", "merchant_category_sk"),
         ("date_key", "gold.dim_date", "date_key"),
     ):
-        # Aliases are not optional here: both sides carry the same column
-        # name, and Spark refuses an ambiguous join key rather than guessing.
-        dim = spark.table(table).select(F.col(target).alias("_k")).distinct()
-        orphans = (
-            fact.filter(F.col(column).isNotNull())
-            .select(F.col(column).alias("_k"))
-            .join(dim, on="_k", how="left_anti")
-            .count()
-        )
-        nulls = fact.filter(F.col(column).isNull()).count()
-        print(f"{column:22s} orphan keys={orphans:>6,}  null keys={nulls:>6,}")
-        ok &= orphans == 0
+        ok &= orphan_check(spark, fact, column, table, target)
 
     inferred = spark.table("gold.dim_account").filter("is_inferred").count()
     print(f"inferred members    : {inferred}")
@@ -88,10 +77,29 @@ def main() -> int:
     return 0 if ok else 1
 
 
+def orphan_check(spark, fact, column, table, target) -> bool:
+    """Every non-null foreign key resolves in its dimension.
+
+    Runs for every declared relationship on every fact. It was run for
+    fact_transaction alone, and the fact tables it skipped were exactly
+    where the orphans were (review-07 H-01).
+    """
+    # Aliases are not optional here: both sides carry the same column
+    # name, and Spark refuses an ambiguous join key rather than guessing.
+    dim = spark.table(table).select(F.col(target).alias("_k")).distinct()
+    orphans = (
+        fact.filter(F.col(column).isNotNull())
+        .select(F.col(column).alias("_k"))
+        .join(dim, on="_k", how="left_anti")
+        .count()
+    )
+    nulls = fact.filter(F.col(column).isNull()).count()
+    print(f"{column:22s} orphan keys={orphans:>6,}  null keys={nulls:>6,}")
+    return orphans == 0
+
+
 def check_daily_balance(spark) -> bool:
     """A periodic snapshot: every open day present, balances carrying forward."""
-    from pyspark.sql.window import Window
-
     bal = spark.table("gold.fact_daily_balance")
     ok = True
     print()
@@ -109,29 +117,34 @@ def check_daily_balance(spark) -> bool:
     print(f"quiet days carried  : {quiet:,} of {rows:,}")
     ok &= quiet > 0
 
-    # Continuity: yesterday's closing balance is today's opening balance.
-    day = Window.partitionBy("account_id").orderBy("date_key")
-    breaks = (
-        bal.withColumn("_prev_close", F.lag("closing_balance").over(day))
+    ok &= orphan_check(spark, bal, "account_sk", "gold.dim_account", "account_sk")
+    ok &= orphan_check(spark, bal, "date_key", "gold.dim_date", "date_key")
+
+    # Reconcile against silver, the layer this fact is derived from. The old
+    # checks here compared the fact to itself (opening = closing - movement is
+    # true by construction) and could not fail; a dropped movement passed
+    # every one of them (review-07 M-05). These can fail.
+    silver_txn = spark.table("silver.transaction")
+    truth = silver_txn.groupBy("account_id").agg(F.sum("amount").alias("truth"))
+    total = bal.groupBy("account_id").agg(F.sum("movement").alias("total"))
+    mismatched = (
+        total.join(truth, on="account_id", how="full")
         .filter(
-            F.col("_prev_close").isNotNull() & (F.col("_prev_close") != F.col("opening_balance"))
+            F.abs(F.coalesce(F.col("total"), F.lit(0)) - F.coalesce(F.col("truth"), F.lit(0)))
+            > 0.01
         )
         .count()
     )
-    print(f"continuity breaks   : {breaks}")
-    ok &= breaks == 0
-
-    # The final closing balance must equal the sum of the account's movements.
-    last = bal.groupBy("account_id").agg(F.max("date_key").alias("date_key"))
-    final = bal.join(last, on=["account_id", "date_key"]).select("account_id", "closing_balance")
-    truth = bal.groupBy("account_id").agg(F.sum("movement").alias("total"))
-    mismatched = (
-        final.join(truth, on="account_id")
-        .filter(F.abs(F.col("closing_balance") - F.col("total")) > 0.01)
-        .count()
-    )
-    print(f"balance mismatches  : {mismatched}")
+    print(f"accounts where gold movement != silver amounts: {mismatched}")
     ok &= mismatched == 0
+
+    gold_count = bal.agg(F.sum("txn_count")).first()[0]
+    silver_count = silver_txn.filter("txn_type != 'OPENING'").count()
+    verdict = "OK" if gold_count == silver_count else "BROKEN"
+    print(
+        f"txn_count total     : gold={gold_count:,} silver non-OPENING={silver_count:,} {verdict}"
+    )
+    ok &= gold_count == silver_count
 
     # No day may fall outside the account's life.
     account = spark.table("gold.dim_account").select("account_id", "open_date", "close_date")
@@ -173,6 +186,17 @@ def check_lifecycle(spark) -> bool:
     ).count()
     print(f"milestones out of order: {out_of_order}")
     ok &= out_of_order == 0
+
+    ok &= orphan_check(spark, life, "account_sk", "gold.dim_account", "account_sk")
+    for column in ("opened_date_key", "first_txn_date_key", "last_txn_date_key", "closed_date_key"):
+        ok &= orphan_check(spark, life, column, "gold.dim_date", "date_key")
+
+    # A closure the data cannot have observed yet: the generator once stamped
+    # CLOSED with close dates years past the last extract (review-07 H-02).
+    horizon = spark.table("gold.fact_daily_balance").agg(F.max("date_key")).first()[0]
+    future = life.filter(F.col("closed_date_key") > F.lit(horizon)).count()
+    print(f"closed beyond data  : {future}")
+    ok &= future == 0
 
     # Nulls here are milestones that have not happened, not missing data.
     never = life.filter("first_txn_date_key IS NULL").count()

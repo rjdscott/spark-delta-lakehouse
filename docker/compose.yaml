@@ -43,6 +43,19 @@ services:
       "
     restart: "no"
 
+  # Creates the lakehouse catalog and the three schemas in Unity Catalog, so
+  # a cold stack matches the README's claim that UC holds the namespace
+  # (review-07 H-21). Idempotent; safe on every stack-up.
+  uc-init:
+    image: ${CURL_IMAGE}
+    depends_on:
+      unitycatalog:
+        condition: service_healthy
+    volumes:
+      - ./uc/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+    restart: "no"
+
   # --- Catalog layer -------------------------------------------------------
   catalog-db:
     image: ${POSTGRES_IMAGE}
@@ -181,6 +194,10 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      # The bucket must exist before any job writes; eyeballing minio-init's
+      # exit in stack-ps was the only gate (review-07 M-22).
+      minio-init:
+        condition: service_completed_successfully
       hive-metastore:
         condition: service_healthy
     environment:

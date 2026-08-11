@@ -9,8 +9,11 @@
   transaction-account spend against salary. [`#h-02`](01-coherence.md#h-02)
 - [x] **M-03** P1: stop using current status to gate historical activity.
   [`#m-03`](01-coherence.md#m-03)
-- [ ] **M-04** P2: make no-transaction accounts deliberate rather than
-  accidental. [`#m-04`](01-coherence.md#m-04)
+- [x] **M-04** P2: make no-transaction accounts deliberate rather than
+  accidental. [`#m-04`](01-coherence.md#m-04) (Closed by review-07: the
+  survivors are accounts that closed before the observation window opens,
+  which is the correct outcome, not the accidental one. The review-07 H-02
+  close-date clamp made the rule exact.)
 
 ## Carried from review-03
 
