@@ -31,11 +31,11 @@ flowchart TB
 
 | Service | Role | Host port |
 |---------|------|-----------|
-| `minio` | Object storage: the landing zone for extracts and the location of every Delta table | 9001 (console) |
-| `hive-metastore` + `hive-db` | The working catalog. Spark resolves table names here; code never carries paths | |
+| `minio` | Object storage: the landing zone for extracts and the location of every Delta table | 9000 (S3 API), 9001 (console) |
+| `hive-metastore` + `hive-db` | The working catalog. Spark resolves table names here; code never carries paths | 9083 (thrift) |
 | `unitycatalog` + `catalog-db` | Runs and holds a namespace, but is not on the read path (see below) | 8080 |
-| `spark-master`, 2 workers | Standalone cluster the jobs execute on | 8090 (master UI), 4040 (running job UI) |
-| `app` | Submission container. Every `make` target runs `spark-submit --master spark://spark-master:7077` inside it | |
+| `spark-master`, 2 workers | Standalone cluster the jobs execute on | 8090 (master UI), 8091/8092 (worker UIs) |
+| `app` | Submission container. The job-submitting `make` targets run `spark-submit --master spark://spark-master:7077` inside it; jobs run in client mode, so the driver lives here | 4040 (job UI while running) |
 
 ## Job submission path
 

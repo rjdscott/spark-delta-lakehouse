@@ -19,7 +19,7 @@ gantt
     dateFormat YYYY-MM-DD HH:mm
     axisFormat %d %b %Hh
     section Versions
-    v1, effective since 2024-11-03   :done, 2025-03-11 00:00, 2025-03-12 10:02
+    v1, effective from 1900-01-01 (bar clipped)   :done, 2025-03-11 00:00, 2025-03-12 10:02
     v2, first address change         :active, 2025-03-12 10:02, 2025-03-12 16:45
     v3, second change, current       :2025-03-12 16:45, 2025-03-13 12:00
 ```
@@ -61,7 +61,9 @@ transactions belong to a party whose tracked attributes changed, and 13,247
 of them resolve to a version that is not the current one. A join to
 `is_current` answers all 13,247 differently, and the join still succeeds, so
 nothing flags the error. `scripts/verify_scd2.py` checks range integrity
-(no gaps, no overlaps, one current row per undeleted key) on every run.
+(no gaps, no overlaps, one current row per undeleted key); it is a manual
+`spark-submit` step, run per the
+[runbook](runbooks/run-the-lakehouse-stack.md), not invoked by `make` or CI.
 
 ## Related
 
