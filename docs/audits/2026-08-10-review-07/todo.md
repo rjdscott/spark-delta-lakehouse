@@ -67,7 +67,7 @@ Remediation PRs cite the finding codes.
       brief
 - [ ] **M-32** P2: ADRs for surrogate key strategy and SCD type per entity;
       below-the-bar notes for the rest
-- [ ] **M-33** P2: layer-flow and SCD2-timeline diagrams, or record the
+- [x] **M-33** P2: layer-flow and SCD2-timeline diagrams, or record the
       drop; state the pre-commit decision
 
 ## P3: polish

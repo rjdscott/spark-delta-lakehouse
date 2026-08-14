@@ -5,7 +5,7 @@ Two artifacts, the same rule as the index tables: a diagram maintained by
 hand disagrees with the code within a month, so these are derived and
 `make docs-check` fails when they are stale.
 
-- The star-schema ERD, spliced between markers in `README.md`.
+- The star-schema ERD, spliced between markers in `docs/data-model.md`.
 - `docs/BUS_MATRIX.md`, business processes against conformed dimensions,
   written whole.
 
@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from lakehouse.spec import Spec, load_all  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-README = ROOT / "README.md"
+DATA_MODEL = ROOT / "docs" / "data-model.md"
 BUS_MATRIX = ROOT / "docs" / "BUS_MATRIX.md"
 
 ERD_START = "<!-- erd:start -->"
@@ -105,9 +105,9 @@ had failed in its own codebase.
 """
 
 
-def splice_readme(text: str, block: str) -> str:
+def splice(text: str, block: str) -> str:
     if ERD_START not in text or ERD_END not in text:
-        raise SystemExit(f"README.md: missing {ERD_START} / {ERD_END} markers")
+        raise SystemExit(f"{DATA_MODEL.name}: missing {ERD_START} / {ERD_END} markers")
     pattern = re.escape(ERD_START) + r".*?" + re.escape(ERD_END)
     return re.sub(pattern, lambda _: f"{ERD_START}\n{block}\n{ERD_END}", text, flags=re.S)
 
@@ -120,13 +120,13 @@ def main(argv: list[str] | None = None) -> int:
     specs = load_all()
     stale = []
 
-    new_readme = splice_readme(README.read_text(), erd(specs))
-    if new_readme != README.read_text():
+    new_page = splice(DATA_MODEL.read_text(), erd(specs))
+    if new_page != DATA_MODEL.read_text():
         if args.check:
-            stale.append("README.md (ERD)")
+            stale.append("docs/data-model.md (ERD)")
         else:
-            README.write_text(new_readme)
-            print("updated README.md ERD")
+            DATA_MODEL.write_text(new_page)
+            print("updated docs/data-model.md ERD")
 
     new_matrix = bus_matrix(specs)
     if not BUS_MATRIX.exists() or BUS_MATRIX.read_text() != new_matrix:
