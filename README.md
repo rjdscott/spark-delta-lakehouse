@@ -58,25 +58,25 @@ erDiagram
     fact_transaction }o--|| dim_merchant_category : "merchant_category_sk"
     fact_transaction }o--|| dim_date : "date_key"
     dim_account {
-        grain "One row per account, carrying its latest known state"
+        string grain "One row per account, carrying its latest known state"
     }
     dim_date {
-        grain "One row per calendar day across the range the facts require"
+        string grain "One row per calendar day across the range the facts require"
     }
     dim_merchant_category {
-        grain "One row per merchant category, including a member for transactions that carry none"
+        string grain "One row per merchant category, including a member for transactions that carry none"
     }
     dim_party {
-        grain "One row per party per version of its tracked attributes, effective over a timestamp range"
+        string grain "One row per party per version of its tracked attributes, effective over a timestamp range"
     }
     fact_account_lifecycle {
-        grain "One row per account, carrying its milestone dates, updated in place as each milestone occurs"
+        string grain "One row per account, carrying its milestone dates, updated in place as each milestone occurs"
     }
     fact_daily_balance {
-        grain "One row per account per calendar day the account was open, whether or not it transacted"
+        string grain "One row per account per calendar day the account was open, whether or not it transacted"
     }
     fact_transaction {
-        grain "One row per transaction event, resolved to the dimension versions current at the moment it occurred"
+        string grain "One row per transaction event, resolved to the dimension versions current at the moment it occurred"
     }
 ```
 <!-- erd:end -->
