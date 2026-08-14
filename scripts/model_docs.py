@@ -53,7 +53,9 @@ def erd(specs: dict[str, Spec]) -> str:
     for name, spec in sorted(gold.items()):
         grain = spec.grain.rstrip(".").replace('"', "'")
         lines.append(f"    {short(name)} {{")
-        lines.append(f'        grain "{grain}"')
+        # Mermaid attributes are `type name "comment"`. Without the type the
+        # parser reads the quoted sentence as the name and the block fails.
+        lines.append(f'        string grain "{grain}"')
         lines.append("    }")
     lines.append("```")
     return "\n".join(lines)
