@@ -4,7 +4,7 @@ A reference implementation of dimensional modelling on Spark and Delta Lake,
 over a retail banking domain. The stack is local and shaped like a small
 bank's: MinIO for object storage, a Postgres-backed Hive Metastore as the
 catalog, and a Spark standalone cluster that jobs are submitted to. It runs
-from cold start with four commands and verifies its own correctness.
+from cold start with four commands and ships scripted verification.
 
 ```mermaid
 flowchart LR
@@ -22,13 +22,14 @@ flowchart LR
   effective ranges. Gold builds on silver, never on bronze, so entity logic
   exists once.
 - **Grain is declared, not implied.** One YAML spec per entity states the
-  grain, business key, history type, and relationships; the DDL, integrity
-  tests, ERD, and transformation contracts are generated from it, and a
-  loader refuses a table that has drifted from its spec.
+  grain, business key, history type, and relationships; the DDL, ERD, and
+  transformation contracts are generated from it, and a loader refuses a
+  table that has drifted from its spec.
 - **Facts resolve at event time.** `fact_transaction` joins to the dimension
   version whose effective range contains the transaction's event time. In
-  the generated data that changes the answer for 13,247 of 14,899
-  transactions relative to a join on the current version.
+  the generated data, 14,899 transactions belong to a party whose attributes
+  changed, and 13,247 of them resolve to a version that is not the current
+  one.
 - **Rebuilds are safe.** Surrogate keys are hashes, batch loads are
   idempotent, and replaying batches in any order converges to the same
   state.
@@ -59,7 +60,7 @@ make stack-up      # MinIO, Hive Metastore, Unity Catalog, Spark master + 2 work
 make generate      # seeded, deterministic banking extracts (with 8 planted defects)
 make seed          # upload them to the MinIO landing zone
 make demo          # bronze -> silver -> SCD2 -> gold, one batch at a time, narrated
-make demo-queries  # business questions answered by name against the star
+make demo-queries  # optional: business questions answered by name against the star
 ```
 
 Consoles while it runs: MinIO at `:9001`, Spark master at `:8090`, the
@@ -70,8 +71,9 @@ running job at `:4040`. `make help` lists everything, including
 
 Verification is scripted, not asserted: `make check` (docs integrity, lint,
 unit tests), `make test-spark` (transformation tests, inside the container),
-and four `scripts/verify_*.py` checks covering SCD2 range integrity, grain
-uniqueness, orphan keys, balance continuity and milestone ordering. The data
+and four `scripts/verify_*.py` checks, run per the runbook, covering SCD2
+range integrity, grain uniqueness, orphan keys, balance continuity and
+milestone ordering. The data
 carries eight seeded defects, each pinned by a test asserting it is still
 planted; a pipeline that only ever sees clean data proves nothing. Lint and
 tests run in `make check` locally and in CI on every PR; there is no

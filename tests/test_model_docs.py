@@ -1,6 +1,6 @@
 """The generated ERD has to be mermaid a renderer will accept.
 
-GitHub renders `README.md` and silently drops a block that does not parse, so
+GitHub renders `docs/data-model.md` and silently drops a block that does not parse, so
 a syntax slip in the generator is invisible until someone looks at the page.
 The rule this guards is the one that broke it: mermaid entity attributes are
 `type name "comment"`, and a line missing the type reads the quoted sentence

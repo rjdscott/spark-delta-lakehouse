@@ -3,15 +3,18 @@
 The model is declared, not implied. One YAML per entity in
 [`model/`](../model/) states the grain as a sentence, the business key, the
 history type and sequencing column, tracked attributes, and relationships.
-Four artifacts are generated from each spec, so they cannot drift from one
+Three artifacts are generated from each spec, so they cannot drift from one
 another:
 
 1. The DDL. The grain sentence lands in the table comment, readable from the
    catalog.
-2. The integrity tests.
-3. The ERD below and the [bus matrix](BUS_MATRIX.md).
-4. The transformation contracts: the SCD2 builder reads `history.type` from
+2. The ERD below and the [bus matrix](BUS_MATRIX.md).
+3. The transformation contracts: the SCD2 builder reads `history.type` from
    the spec rather than hardcoding it.
+
+The integrity checks (`scripts/verify_silver.py`, `scripts/verify_gold.py`)
+are handwritten against the current model; a relationship added to a spec
+must be added to `verify_gold.py` by hand.
 
 A loader refuses to run against a table that has drifted from its spec
 (`conformance()` in `src/lakehouse/catalog.py`). The spec schema stays
@@ -75,11 +78,12 @@ is measurable is covered in [SCD Type 2](scd2.md).
 
 Business processes against conformed dimensions, generated from the same
 specs: [`BUS_MATRIX.md`](BUS_MATRIX.md). A dimension appearing under more
-than one process is conformed: built once in silver, reused by every process
-that needs it.
+than one process is conformed: built once in gold from the shared silver
+entities, reused by every process that needs it.
 
 ## Related
 
+- [Architecture](architecture.md): the stack these tables live on.
 - [Pipeline](pipeline.md): how the layers produce these tables.
 - [SCD Type 2](scd2.md): how `dim_party` keeps history.
 - [ADR 0009](adr/0009-store-the-daily-balance-snapshot-rather-than-derive-it.md):

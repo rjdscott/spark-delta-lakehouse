@@ -12,7 +12,9 @@ flowchart LR
     bronze -->|"timeline rebuild per touched key"| scd2["silver.party<br/>SCD Type 2 history"]
     silver --> gold["Gold<br/>conformed star schema"]
     scd2 --> gold
-    gold --> verify["verify_* checks"]
+    verify["verify_* checks (manual)"] -.-> silver
+    verify -.-> scd2
+    verify -.-> gold
 ```
 
 ## Extract shapes
@@ -36,11 +38,13 @@ rows, so the layer converges instead of growing.
 business key, conformed naming driven by the spec. This layer existing once
 is what keeps pipeline count proportional to business processes rather than
 to consumers; without it, every new request rebuilds entity logic from
-bronze. Deduplication is on the
-business key plus the sequencing column, not `DISTINCT`, which would collapse
-two legitimate same-day versions of a party. Silver performs no dimensional
-resolution: transactions keep their natural keys, and resolving them to
-dimension versions is gold's job.
+bronze. Deduplication keeps the latest row per business key by the
+sequencing column; `DISTINCT` would be wrong here, because the extracts
+plant exact duplicate rows on purpose. Preserving two legitimate same-day
+versions of a party is the SCD2 rebuild's job, which dedupes on the key
+plus the sequencing column. Silver performs no dimensional resolution:
+transactions keep their natural keys, and resolving them to dimension
+versions is gold's job.
 
 **Party history** is maintained as SCD Type 2 in `silver.party`, rebuilt
 from bronze for every business key a batch touches so that replaying batches
@@ -57,8 +61,9 @@ reconciled when the real record lands. The tables and grains are on the
 
 ## Batch execution
 
-`make demo` runs the layers one batch at a time; each `make run-*` target is
-a `spark-submit` of the matching `scripts/run_*.py`. There is no scheduler
+`make demo` runs the layers one batch at a time; the `bronze`, `silver`,
+`party`, and `gold` targets each `spark-submit` the corresponding
+`scripts/run_*.py` (`party` runs `run_scd2.py`). There is no scheduler
 and no config framework by design; batch order and cadence are explicit in
 the `Makefile`.
 
@@ -70,6 +75,9 @@ Correctness is scripted, not asserted:
 - `make test-spark`: transformation tests, run inside the container.
 - `scripts/verify_bronze.py` through `verify_gold.py`: SCD2 range integrity,
   grain uniqueness, orphan keys, balance continuity, milestone ordering.
+  These are manual `spark-submit` steps, run per the
+  [runbook](runbooks/run-the-lakehouse-stack.md); nothing invokes them
+  automatically.
 
 The generated data carries eight seeded defects
 ([`data/DEFECTS.md`](../data/DEFECTS.md)), each with a test asserting it is
